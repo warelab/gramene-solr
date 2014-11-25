@@ -1,0 +1,28 @@
+{
+  "name": "gramene-solr",
+  "version": "0.0.0",
+  "description": "Gramene's solr proxy",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/warelab/gramene-solr"
+  },
+  "keywords": [
+    "bioinformatics"
+  ],
+  "author": "Andrew Olson",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/warelab/gramene-solr/issues"
+  },
+  "homepage": "https://github.com/warelab/gramene-solr",
+  "dependencies": {
+    "express": "^4.6.1",
+    "cors": "^2.4.1",
+    "request": "^2.48.0",
+    "conform": "^0.2.5"
+  }
+}
