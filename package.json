@@ -23,6 +23,7 @@
     "express": "^4.6.1",
     "cors": "^2.4.1",
     "request": "^2.48.0",
-    "conform": "^0.2.5"
+    "conform": "^0.2.5",
+    "body-parser": "^1.10.1"
   }
 }
