@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 var request = require('request');
-var url = 'http://localhost:8983/solr/taxonomy/select?q=*:*&rows=1000&wt=json&indent=true';
+var settings = require('./config/settings.json');
+
+var url = settings.hostname + ':' + settings.port + '/solr/taxonomy/select?q=*:*&rows=1000&wt=json&indent=true';
 request.get(url,function(err,response, body) {
   var r = JSON.parse(response.body);
   var taxes = r.response.docs;
