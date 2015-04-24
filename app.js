@@ -39,7 +39,7 @@ app.get('/', function (req, res, next) { // return top level info
   res.json(cores);
 });
 
-app.get('search/:core', function (req, res, next) {
+app.get('/search/:core', function (req, res, next) {
   // check if the collection exists
   var c = req.params.core;
   if (!cores.hasOwnProperty(c)) res.json({"error":" '"+c+"' not found"});
@@ -52,7 +52,7 @@ app.get('search/:core', function (req, res, next) {
   }
 });
 
-app.get('suggest/:core', function (req, res, next) {
+app.get('/suggest/:core', function (req, res, next) {
   // check if the collection exists
   var c = req.params.core;
   if (!cores.hasOwnProperty(c)) res.json({"error":" '"+c+"' not found"});
@@ -65,7 +65,7 @@ app.get('suggest/:core', function (req, res, next) {
   }
 });
 
-app.post('search/:core', function (req, res, next) {
+app.post('/search/:core', function (req, res, next) {
   // check if the collection exists
   var c = req.params.core;
   if (!cores.hasOwnProperty(c)) res.json({"error":" '"+c+"' not found"});
