@@ -1,15 +1,16 @@
 // setup some dependencies
 var express  = require('express'),
-    request = require('request'),
+    request = require('sync-request'),
     qs = require('querystring'),
     cors = require('cors'),
     bodyParser = require('body-parser'),
+    cache = require('web-cache'),
     validate = require('conform').validate;
 
 var app = express();
 
 app.use(cors());
-app.use(cors());
+app.use(cache.middleware({clean: true}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended:true}));
 
@@ -48,7 +49,9 @@ app.get('/search/:core', function (req, res, next) {
     var url = solrURL
       + '/solr/' + c + '/query?'
       + qs.stringify(req.query);
-    request.get(url).pipe(res);
+    // request.get(url).pipe(res);
+    var solrResponse = request('GET',url);
+    res.json(JSON.parse(solrResponse.body));
   }
 });
 
