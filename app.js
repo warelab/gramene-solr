@@ -52,7 +52,11 @@ app.get('/search/:core', function (req, res, next) {
       + qs.stringify(req.query);
     // request.get(url).pipe(res);
     var solrResponse = srequest('GET',url);
-    res.json(JSON.parse(solrResponse.body));
+    res.setHeader('Content-Type','application/json');
+    res.write(solrResponse.body);
+    res.end();
+    //
+    // res.json(JSON.parse(solrResponse.body));
   }
 });
 
@@ -66,7 +70,9 @@ app.get('/suggest/:core', function (req, res, next) {
       + '/solr/' + c + '/suggest?indent=true&wt=json&'
       + qs.stringify(req.query);
     var solrResponse = srequest('GET',url);
-    res.json(JSON.parse(solrResponse.body));
+    res.setHeader('Content-Type','application/json');
+    res.write(solrResponse.body);
+    res.end();
   }
 });
 
