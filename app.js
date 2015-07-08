@@ -1,5 +1,6 @@
 // setup some dependencies
 var express  = require('express'),
+    compression = require('compression'),
     request = require('request'),
     qs = require('querystring'),
     cors = require('cors'),
@@ -10,6 +11,7 @@ var app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended:true}));
+app.use(compression());
 
 var port = process.argv[2];
 var solrURL = process.argv[3];
