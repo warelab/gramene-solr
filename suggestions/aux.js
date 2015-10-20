@@ -42,7 +42,8 @@ var mongo2solr = {
       id: doc.id,
       name: doc.name,
       def: doc.def,
-      fq: 'GO__ancestors',
+      fqField: 'GO__ancestors',
+      _genes: assoc.hasOwnProperty(doc._id) ? assoc[doc._id] : 0,
       relevance: assoc.hasOwnProperty(doc._id) ?
         doc.ancestors.length/100 // more weight to more specific terms
       : 0 // demote GO terms with no genes associated with them
@@ -61,7 +62,8 @@ var mongo2solr = {
       id: doc.id,
       name: doc.name,
       def: doc.def,
-      fq: 'PO__ancestors',
+      fqField: 'PO__ancestors',
+      _genes: assoc.hasOwnProperty(doc._id) ? assoc[doc._id] : 0,
       relevance: assoc.hasOwnProperty(doc._id) ?
         doc.ancestors.length/100 // more weight to more specific terms
       : 0 // demote GO terms with no genes associated with them
@@ -79,7 +81,8 @@ var mongo2solr = {
       int_id: doc._id,
       id: doc.id,
       name: doc.name,
-      fq: 'taxonomy__ancestors',
+      fqField: 'taxonomy__ancestors',
+      _genes: assoc.hasOwnProperty(doc._id) ? assoc[doc._id] : 0,
       relevance: assoc.hasOwnProperty(doc._id) ?
         doc.ancestors.length/100
       : 0
@@ -101,7 +104,8 @@ var mongo2solr = {
       description: doc.description,
       abstract: doc.abstract,
       xref: [],
-      fq: 'domains__ancestors',
+      fqField: 'domains__ancestors',
+      _genes: assoc.hasOwnProperty(doc._id) ? assoc[doc._id] : 0,
       relevance: assoc.hasOwnProperty(doc._id) ?
         doc.ancestors.length/100
       : 0
@@ -116,6 +120,21 @@ var mongo2solr = {
         }
       }
     }
+    return solr;
+  },
+  pathways: function(doc,assoc) {
+    var solr = {
+      category: doc.type, // Reaction or Pathway
+      int_id: doc._id,
+      id: doc.id,
+      name: doc.name,
+      synonym: doc.synonyms,
+      fqField: 'pathways__ancestors',
+      _genes: assoc.hasOwnProperty(doc._id) ? assoc[doc._id] : 0,
+      relevance: assoc.hasOwnProperty(doc._id) ?
+        doc.ancestors.length/100
+      : 0
+    };
     return solr;
   }
 };

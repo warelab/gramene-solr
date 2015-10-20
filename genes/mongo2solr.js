@@ -20,10 +20,6 @@ require('readline').createInterface(
     description : mongo.description.replace(/\s+\[Source:.*/,''), // strip off the [Source:...]
     taxon_id    : mongo.taxon_id,
 
-    // used to construct a link to ensembl
-    system_name : mongo.system_name,
-    schema_type : mongo.schema_type,
-
     // fields useful for genomic interval queries
     map         : location.map,
     region      : location.region,
@@ -35,6 +31,18 @@ require('readline').createInterface(
     biotype : mongo.biotype,
     synonyms: mongo.synonyms
   };
+
+  // representative homolog (for display purposes)
+  if (mongo.hasOwnProperty('representative')) {
+    solr.rep_id = mongo.representative.id;
+    solr.rep_taxon_id = mongo.representative.taxon_id;
+    if (mongo.representative.hasOwnProperty('name')) {
+      solr.rep_name = mongo.representative.name;
+    }
+    if (mongo.representative.hasOwnProperty('description')) {
+      solr.rep_desc = mongo.representative.description.replace(/\s+\[Source:.*/,'');
+    }
+  }
 
   // facet counting on bin fields drives the taxagenomic distribution
   for (var field in mongo.bins) {

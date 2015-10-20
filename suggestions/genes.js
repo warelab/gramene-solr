@@ -15,7 +15,8 @@ http.read(url).then(function(data) {
       category: 'genes',
       id: '_term_'+ ++n,
       name: term,
-      fq: '_terms',
+      fqField: '_terms',
+      _genes: term_freq[term],
       relevance: term_freq[term] > 100 ? 1 : term_freq[term]/100
     };
     if (n===1) console.log('[');
@@ -36,9 +37,10 @@ http.read(url).then(function(data) {
   
     var solr = {
       category    : 'genes',
-      fq          : 'id',
+      fqField     : 'id',
       id          : mongo._id,
       description : mongo.description.replace(/\s+\[Source:.*/,''), // strip off the [Source:...]
+      _genes      : 1,
       relevance   : 0
     };
     if (mongo.name !== mongo._id && !term_freq.hasOwnProperty(mongo.name)) {
