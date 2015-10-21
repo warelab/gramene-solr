@@ -17,18 +17,18 @@ curl 'http://localhost:8983/solr/genes/update?commit=true' --data-binary @solr_g
 create suggestions
 ```
 cd ../suggestions
-mongoexport -c GO | ./aux.js GO http://localhost:8983/solr/genes' > GO.json
-mongoexport -c PO | ./aux.js PO http://localhost:8983/solr/genes' > PO.json
-mongoexport -c taxonomy | ./aux.js taxonomy http://localhost:8983/solr/genes' > taxonomy.json
-mongoexport -c domains | ./aux.js domains http://localhost:8983/solr/genes' > domains.json
+mongoexport -h brie -d search48 -c GO | ./aux.js GO http://localhost:8983/solr/genes' > GO.json
+mongoexport -h brie -d search48 -c PO | ./aux.js PO http://localhost:8983/solr/genes' > PO.json
+mongoexport -h brie -d search48 -c taxonomy | ./aux.js taxonomy http://localhost:8983/solr/genes' > taxonomy.json
+mongoexport -h brie -d search48 -c domains | ./aux.js domains http://localhost:8983/solr/genes' > domains.json
 cat mongo_genes.json | node genes.js http://localhost:8983/solr/genes > genes.json
 ```
 
 load into solr suggestions core
 ```
-curl 'http://localhost:8983/solr/suggestions/update?commit=true' --data-binary @GO.json -H 'Content-type:application/json'
-curl 'http://localhost:8983/solr/suggestions/update?commit=true' --data-binary @PO.json -H 'Content-type:application/json'
-curl 'http://localhost:8983/solr/suggestions/update?commit=true' --data-binary @taxonomy.json -H 'Content-type:application/json'
-curl 'http://localhost:8983/solr/suggestions/update?commit=true' --data-binary @domains.json -H 'Content-type:application/json'
-curl 'http://localhost:8983/solr/suggestions/update?commit=true' --data-binary @genes.json -H 'Content-type:application/json'
+curl 'http://localhost:8983/solr/suggestions48/update?commit=true' --data-binary @GO.json -H 'Content-type:application/json'
+curl 'http://localhost:8983/solr/suggestions48/update?commit=true' --data-binary @PO.json -H 'Content-type:application/json'
+curl 'http://localhost:8983/solr/suggestions48/update?commit=true' --data-binary @taxonomy.json -H 'Content-type:application/json'
+curl 'http://localhost:8983/solr/suggestions48/update?commit=true' --data-binary @domains.json -H 'Content-type:application/json'
+curl 'http://localhost:8983/solr/suggestions48/update?commit=true' --data-binary @genes.json -H 'Content-type:application/json'
 ```

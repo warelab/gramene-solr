@@ -1,37 +1,12 @@
 #!/usr/bin/env node
 
-var http = require("q-io/http");
-var key = process.argv[2];
-var genesURL = process.argv[3];
+var http = require('q-io/http')
+  , fs = require('fs')
+  , collections = require('gramene-mongodb-config')
+  , _ = require('lodash')
+  , Q = require('q');
 
-// do a facet query on the genes core on the  key__ancestors field
-var url = genesURL
-  + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map'
-  + '&facet.field=' + key + '__ancestors';
-
-http.read(url).then(function(databuffer) {
-  var data = JSON.parse(databuffer);
-
-  var assoc = data.facet_counts.facet_fields[key+'__ancestors'];
-  
-  // setup reader
-  var n=0;
-  require('readline').createInterface(
-    {
-      input: process.stdin,
-      terminal: false
-    }
-  ).on('line', function(line) { // one JSON object per line
-    var mongo = JSON.parse(line);
-    var solr = mongo2solr[key](mongo,assoc);
-    if (n===0) console.log('[');
-    else console.log(',');
-    console.log(JSON.stringify(solr));
-    n++;
-  }).on('close', function() {
-    console.log(']');
-  });
-});
+var genesURL = process.argv[2];
 
 var optionalFields = ['comment','xref','synonym'];
 var mongo2solr = {
@@ -138,3 +113,39 @@ var mongo2solr = {
     return solr;
   }
 };
+
+var promises = _.map(mongo2solr, function(f,key) {
+  console.error(key,'started');
+  // do a facet query on the genes core on the  key__ancestors field
+  var url = genesURL
+    + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map'
+    + '&facet.field=' + key + '__ancestors';
+  return http.read(url).then(function(databuffer) {
+    console.error(key,'got facets');
+    var data = JSON.parse(databuffer);
+    var deferred = Q.defer();
+
+    var assoc = data.facet_counts.facet_fields[key+'__ancestors'];
+    // instead of reading from stdin, get the docs from mongodb
+    collections[key].mongoCollection().then(function(collection) {
+      collection.find().toArray(function(err,docs) {
+        if (err) deferred.reject(err);
+        var solrDocs = docs.map(function(doc) {
+          return f(doc,assoc);
+        });
+        fs.writeFile(key + '.json',JSON.stringify(solrDocs,null,'  '), function(err) {
+          if (err) deferred.reject(err);
+          console.error(key,'wrote to json file');
+          deferred.resolve(true);
+        });
+      });
+    });
+
+    return deferred.promise;
+  });
+});
+
+Q.all(promises).then(function(arrayOfTrues) {
+  collections.closeDatabases();
+});
+
