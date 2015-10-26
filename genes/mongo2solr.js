@@ -33,7 +33,7 @@ require('readline').createInterface(
   };
 
   // representative homolog (for display purposes)
-  if (mongo.hasOwnProperty('representative')) {
+  if (mongo.hasOwnProperty('representative') && mongo.representative.id !== solr.id) {
     solr.rep_id = mongo.representative.id;
     solr.rep_taxon_id = mongo.representative.taxon_id;
     if (mongo.representative.hasOwnProperty('name')) {
