@@ -132,8 +132,9 @@
    <field name="_genes" type="int" indexed="false" stored="true" required="true" multiValued="false" />
 	 <field name="relevance" type="float" indexed="true" stored="true" required="true" multiValued="false" />
    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" /> 
-	 <field name="category" type="string" indexed="true" stored="true" required="true" multiValued="false" />
+	 <field name="category" type="string" indexed="true" stored="true" required="true" multiValued="false" docValues="true" />
 	 <field name="name" type="text_general" indexed="true" stored="true" required="false" multiValued="false" />
+
 	 <field name="def" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />
 	 <field name="description" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />
 	 <field name="abstract" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />
