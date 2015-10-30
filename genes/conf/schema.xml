@@ -50,8 +50,9 @@
 
 	 <!-- basic info for display -->
    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" /> 
-   <field name="name" type="string" indexed="true" stored="true" multiValued="false" required="true"/>
+   <field name="name" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="description" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
+	 <field name="synonyms" type="text_general" indexed="true" stored="true" multiValued="true"/>
    <field name="taxon_id" type="int" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="biotype" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
 
@@ -69,7 +70,6 @@
    <field name="rep_desc" type="string" indexed="false" stored="true" /> 
 
 	 <!-- additional fields for query/faceting -->
-	 <field name="synonyms" type="text_general" indexed="true" stored="false" multiValued="true"/>
    <field name="grm_gene_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
    <field name="epl_gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
    <field name="grm_gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
@@ -85,16 +85,18 @@
    <dynamicField name="protein__*"   type="float"  indexed="true" stored="false" multiValued="true"/>
 	 <dynamicField name="homology__*"  type="string" indexed="true" stored="false" multiValued="true"/>
 
-	 <!-- catchall field for text queries -->
+	 <!-- catchall field for text queries (see solrconfig query requestHandler for boosting ) -->
 	 <field name="text" type="text_general" indexed="true" stored="false" multiValued="true"/>
-	 <copyField source="id" dest="text"/>
-	 <copyField source="name" dest="text"/>
-	 <copyField source="description" dest="text"/>
+	 <copyField source="id" dest="text"/> <!-- added here to allow case insensitive search -->
+	 <!-- <copyField source="name" dest="text"/> -->
+	 <!-- <copyField source="description" dest="text"/> -->
 	 <copyField source="*__xrefs" dest="text"/>
-	 <copyField source="synonyms" dest="text"/>
+	 <!-- <copyField source="synonyms" dest="text"/> -->
+	 <copyField source="rep_name" dest="text"/>
+	 <copyField source="rep_desc" dest="text"/>
 
 	 <!-- string versions of text fields for faceting - to build the genes suggestions -->
-	 <field name="_terms" type="string" indexed="true" stored="false" multiValued="true"/>
+	 <field name="_terms" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
 	 <copyField source="id" dest="_terms"/>
 	 <copyField source="name" dest="_terms"/>
 	 <copyField source="synonyms" dest="_terms"/>

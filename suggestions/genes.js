@@ -14,6 +14,7 @@ http.read(url).then(function(data) {
     var solr = {
       category: 'genes',
       id: '_term_'+ ++n,
+      displayName: term,
       name: term,
       fqField: '_terms',
       _genes: term_freq[term],
@@ -40,13 +41,17 @@ http.read(url).then(function(data) {
       fqField     : 'id',
       id          : mongo._id,
       description : mongo.description.replace(/\s+\[Source:.*/,''), // strip off the [Source:...]
+      displayName : mongo._id,
       _genes      : 1,
       relevance   : 0
     };
     if (mongo.name !== mongo._id && !term_freq.hasOwnProperty(mongo.name)) {
       solr.name = mongo.name;
       solr.relevance=1;
+      solr.displayName += ' ' + mongo.name;
     }
+    // append species name to displayName
+    solr.displayName += ' ('+mongo.taxon_id+')';
     var xref_h = {};
     for (var db in mongo.xrefs) {
       if (!mongo.ancestors.hasOwnProperty(db)) { // aux cores
