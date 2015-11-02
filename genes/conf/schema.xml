@@ -57,11 +57,12 @@
    <field name="biotype" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
 
    <!-- location fields -->
-   <field name="map"    type="string" indexed="true" stored="false" />
-   <field name="region" type="string" indexed="true" stored="false" /> 
-   <field name="start"  type="int" indexed="true" stored="false" />
-   <field name="end"    type="int" indexed="true" stored="false" />
- 	 <field name="strand" type="int" indexed="true" stored="false" />
+   <field name="map"    type="string" indexed="true" stored="true" />
+   <field name="region" type="string" indexed="true" stored="true" />
+   <field name="start"  type="int" indexed="true" stored="true" />
+   <field name="end"    type="int" indexed="true" stored="true" />
+ 	 <field name="strand" type="int" indexed="true" stored="true" />
+	 <field name="gene_idx" type="int" indexed="true" stored="true" />
 
 	 <!-- representative homolog -->
    <field name="rep_id" type="string" indexed="false" stored="true" /> 
