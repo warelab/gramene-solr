@@ -12,7 +12,7 @@ collections.genes.mongoCollection().then(function(collection) {
     if (err) throw err;
     if (mongo == null) {
       console.log(']');
-      collections.closeDatabases();
+      collections.closeMongoDatabase();
     }
     else {
       var location = mongo.location;

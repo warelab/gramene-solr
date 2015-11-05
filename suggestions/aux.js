@@ -181,6 +181,5 @@ var promises = _.map(mongo2solr, function(f,key) {
 });
 
 Q.all(promises).then(function(arrayOfTrues) {
-  collections.closeDatabases();
+  collections.closeMongoDatabase();
 });
-
