@@ -2,9 +2,7 @@
 var collections = require('gramene-mongodb-config');
 
 collections.genes.mongoCollection().then(function(collection) {
-  console.error("hi");
   var cursor = collection.find().sort([{'taxon_id':1},{'location.region':1},{'location.start':1}]);
-  console.error("again");
   var n=0;
   var current_taxon=0;
   var gene_offset = 0;
