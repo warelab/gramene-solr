@@ -24,6 +24,7 @@ var mongo2solr = {
       name: doc.name,
       def: doc.def,
       fqField: 'GO__ancestors',
+      fqValue: doc._id,
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
@@ -45,6 +46,7 @@ var mongo2solr = {
       name: doc.name,
       def: doc.def,
       fqField: 'PO__ancestors',
+      fqValue: doc._id,
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
@@ -74,6 +76,7 @@ var mongo2solr = {
       displayName: doc.name + getRank(doc),
       name: doc.name,
       fqField: 'taxonomy__ancestors',
+      fqValue: doc._id,
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
@@ -98,6 +101,7 @@ var mongo2solr = {
       abstract: doc.abstract,
       xref: [],
       fqField: 'domains__ancestors',
+      fqValue: doc._id,
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
@@ -124,6 +128,7 @@ var mongo2solr = {
       name: doc.name,
       synonym: doc.synonyms,
       fqField: 'pathways__ancestors',
+      fqValue: doc._id,
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms

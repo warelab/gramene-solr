@@ -129,6 +129,7 @@
    -->   
    <field name="int_id" type="int" indexed="true" stored="true" required="false" multiValued="false" />
 	 <field name="fqField" type="string" indexed="false" stored="true" required="true" multiValued="false" />
+	 <field name="fqValue" type="string" indexed="false" stored="true" required="true" multiValued="false" />
    <field name="_genes" type="int" indexed="false" stored="true" required="true" multiValued="false" />
 	 <field name="relevance" type="float" indexed="true" stored="true" required="true" multiValued="false" />
    <field name="id" type="text_general" indexed="true" stored="true" required="true" multiValued="false" /> 
