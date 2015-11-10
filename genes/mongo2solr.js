@@ -79,10 +79,10 @@ collections.genes.mongoCollection().then(function(collection) {
 
       // protein annotation fields
       if (mongo.hasOwnProperty("canonical_translation")) {
-        if (!!mongo.canonical_translation.domainRoots) {
-          solr.domainRoots = mongo.canonical_translation.domainRoots;
+        if (!!mongo.canonical_translation.domain_roots) {
+          solr.domain_roots = mongo.canonical_translation.domain_roots;
         }
-        ['avgResWeight','charge','isoPoint','length','molecularWeight'].forEach(function(fname) {
+        ['avg_res_weight','charge','iso_point','length','molecular_weight'].forEach(function(fname) {
           solr['protein__'+fname] = mongo.canonical_translation[fname];
         });
       }

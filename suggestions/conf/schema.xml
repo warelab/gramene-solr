@@ -128,14 +128,14 @@
      tokens
    -->   
    <field name="int_id" type="int" indexed="true" stored="true" required="false" multiValued="false" />
-	 <field name="fqField" type="string" indexed="false" stored="true" required="true" multiValued="false" />
-	 <field name="fqValue" type="string" indexed="false" stored="true" required="true" multiValued="false" />
+	 <field name="fq_field" type="string" indexed="false" stored="true" required="true" multiValued="false" />
+	 <field name="fq_value" type="string" indexed="false" stored="true" required="true" multiValued="false" />
    <field name="_genes" type="int" indexed="false" stored="true" required="true" multiValued="false" />
 	 <field name="relevance" type="float" indexed="true" stored="true" required="true" multiValued="false" />
    <field name="id" type="text_general" indexed="true" stored="true" required="true" multiValued="false" /> 
 	 <field name="category" type="string" indexed="true" stored="true" required="true" multiValued="false" docValues="true" />
 	 <field name="name" type="text_general" indexed="true" stored="true" required="false" multiValued="false" />
-	 <field name="displayName" type="string" indexed="false" stored="true" required="true" multiValued="false" /> 
+	 <field name="display_name" type="string" indexed="false" stored="true" required="true" multiValued="false" /> 
 
 	 <field name="def" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />
 	 <field name="description" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />

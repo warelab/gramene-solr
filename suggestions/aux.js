@@ -20,11 +20,11 @@ var mongo2solr = {
       category: categoryLabel[doc.namespace],
       int_id: doc._id,
       id: doc.id,
-      displayName: doc.name,
+      display_name: doc.name,
       name: doc.name,
       def: doc.def,
-      fqField: 'GO__ancestors',
-      fqValue: doc._id,
+      fq_field: 'GO__ancestors',
+      fq_value: doc._id,
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
@@ -42,11 +42,11 @@ var mongo2solr = {
       category: 'Plant ontology', //doc.namespace, // plant_anatomy plant_structural_developmental_stage
       int_id: doc._id,
       id: doc.id,
-      displayName: doc.name,
+      display_name: doc.name,
       name: doc.name,
       def: doc.def,
-      fqField: 'PO__ancestors',
-      fqValue: doc._id,
+      fq_field: 'PO__ancestors',
+      fq_value: doc._id,
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
@@ -73,10 +73,10 @@ var mongo2solr = {
       category: 'Taxonomy', //doc.namespace, // ncbi_taxonomy
       int_id: doc._id,
       id: doc.id,
-      displayName: doc.name + getRank(doc),
+      display_name: doc.name + getRank(doc),
       name: doc.name,
-      fqField: 'taxonomy__ancestors',
-      fqValue: doc._id,
+      fq_field: 'taxonomy__ancestors',
+      fq_value: doc._id,
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
@@ -95,13 +95,13 @@ var mongo2solr = {
       category: 'InterPro', //doc.type, // Active_site Binding_site Conserved_site Domain Family PTM Repeat
       int_id: doc._id,
       id: doc.id,
-      displayName: doc.name + ' (' + doc.type + ')',
+      display_name: doc.name + ' (' + doc.type + ')',
       name: doc.name,
       description: doc.description,
       abstract: doc.abstract,
       xref: [],
-      fqField: 'domains__ancestors',
-      fqValue: doc._id,
+      fq_field: 'domains__ancestors',
+      fq_value: doc._id,
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
@@ -124,11 +124,11 @@ var mongo2solr = {
       category: 'Plant Reactome',
       int_id: doc._id,
       id: doc.id,
-      displayName: doc.name,
+      display_name: doc.name,
       name: doc.name,
       synonym: doc.synonyms,
-      fqField: 'pathways__ancestors',
-      fqValue: doc._id,
+      fq_field: 'pathways__ancestors',
+      fq_value: doc._id,
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms

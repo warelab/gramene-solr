@@ -22,14 +22,14 @@ collections.taxonomy.mongoCollection().then(function(collection) {
       var n=0;
       for (var term in term_freq) {
         var solr = {
-          category: 'genes',
-          id: '_term_'+ ++n,
-          displayName: term,
-          name: term,
-          fqField: '_terms',
-          fqValue: term,
-          _genes: term_freq[term],
-          relevance: term_freq[term] > 100 ? 1 : term_freq[term]/100
+          category    : 'genes',
+          id          : '_term_'+ ++n,
+          display_name: term,
+          name        : term,
+          fq_field    : '_terms',
+          fq_value    : term,
+          _genes      : term_freq[term],
+          relevance   : term_freq[term] > 100 ? 1 : term_freq[term]/100
         };
         if (n===1) console.log('[');
         else console.log(',');
@@ -48,22 +48,22 @@ collections.taxonomy.mongoCollection().then(function(collection) {
         }
   
         var solr = {
-          category    : 'genes',
-          fqField     : 'id',
-          fqValue     : mongo._id,
-          id          : mongo._id,
-          description : mongo.description.replace(/\s+\[Source:.*/,''), // strip off the [Source:...]
-          displayName : mongo._id,
-          _genes      : 1,
-          relevance   : 0
+          category     : 'genes',
+          fq_field     : 'id',
+          fq_value     : mongo._id,
+          id           : mongo._id,
+          description  : mongo.description.replace(/\s+\[Source:.*/,''), // strip off the [Source:...]
+          display_name : mongo._id,
+          _genes       : 1,
+          relevance    : 0
         };
         if (mongo.name !== mongo._id && !term_freq.hasOwnProperty(mongo.name)) {
           solr.name = mongo.name;
           solr.relevance=1;
-          solr.displayName += ' ' + mongo.name;
+          solr.display_name += ' ' + mongo.name;
         }
         // append species name to displayName
-        solr.displayName += ' ('+taxonomy[mongo.taxon_id].name+')';
+        solr.display_name += ' ('+taxonomy[mongo.taxon_id].name+')';
         var xref_h = {};
         for (var db in mongo.xrefs) {
           if (!mongo.ancestors.hasOwnProperty(db)) { // aux cores

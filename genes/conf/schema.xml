@@ -77,7 +77,7 @@
    <field name="epl_sibling_trees" type="string" indexed="true" stored="true" multiValued="true"/>
 
    <!-- interpro domain architecture field -->
-   <field name="domainRoots" type="text_ws" indexed="true" stored="true" multiValued="false"/>
+   <field name="domain_roots" type="text_ws" indexed="true" stored="true" multiValued="false"/>
 
    <dynamicField name="*__xrefs"     type="string" indexed="true" stored="false" multiValued="true"/>
    <dynamicField name="*__ancestors" type="int"    indexed="true" stored="false" multiValued="true"  docValues="true"/>
@@ -89,10 +89,7 @@
 	 <!-- catchall field for text queries (see solrconfig query requestHandler for boosting ) -->
 	 <field name="text" type="text_general" indexed="true" stored="false" multiValued="true"/>
 	 <copyField source="id" dest="text"/> <!-- added here to allow case insensitive search -->
-	 <!-- <copyField source="name" dest="text"/> -->
-	 <!-- <copyField source="description" dest="text"/> -->
 	 <copyField source="*__xrefs" dest="text"/>
-	 <!-- <copyField source="synonyms" dest="text"/> -->
 	 <copyField source="rep_name" dest="text"/>
 	 <copyField source="rep_desc" dest="text"/>
 
