@@ -31,7 +31,7 @@ collections.genes.mongoCollection().then(function(collection) {
             name        : term,
             fq_field    : '_terms',
             fq_value    : term,
-            _genes      : term_freq[term],
+            num_genes   : term_freq[term],
             relevance   : term_freq[term] > 100 ? 1 : term_freq[term]/100
           };
           if (n===1) console.log('[');
@@ -58,7 +58,7 @@ collections.genes.mongoCollection().then(function(collection) {
           id           : mongo._id,
           // description  : mongo.description.replace(/\s+\[Source:.*/,''), // strip off the [Source:...]
           display_name : mongo._id,
-          _genes       : 1,
+          num_genes    : 1,
           relevance    : 0,
           taxon_id     : mongo.taxon_id
         };
