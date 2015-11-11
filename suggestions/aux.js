@@ -28,7 +28,7 @@ var mongo2solr = {
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
-        : -0.5 // penalize suggestions without genes
+        : -0.75 // penalize suggestions without genes
     };
     optionalFields.forEach(function(f) {
       if (doc.hasOwnProperty(f)) {
@@ -38,8 +38,12 @@ var mongo2solr = {
     return solr;
   },
   PO: function(doc,genes,specificity) {
+    var categoryLabel = {
+      plant_anatomy : 'Plant anatomy',
+      plant_structure_development_stage: 'Plant structural/developmental stage'
+    };
     var solr = {
-      category: 'Plant ontology', //doc.namespace, // plant_anatomy plant_structural_developmental_stage
+      category: categoryLabel[doc.namespace], // 'Plant ontology',
       int_id: doc._id,
       id: doc.id,
       display_name: doc.name,
@@ -50,7 +54,7 @@ var mongo2solr = {
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
-        : -0.5 // penalize suggestions without genes
+        : -0.75 // penalize suggestions without genes
     };
     optionalFields.forEach(function(f) {
       if (doc.hasOwnProperty(f)) {
@@ -64,23 +68,24 @@ var mongo2solr = {
       if (doc.hasOwnProperty('property_value')) {
         var rank = doc.property_value.match(/has_rank NCBITaxon:(.*)/);
         if (rank.length===2) {
-          return ' (' + rank[1] + ')';
+          return rank[1];
         }
       }
       return '';
     }
     var solr = {
-      category: 'Taxonomy', //doc.namespace, // ncbi_taxonomy
+      category: 'Taxonomy',
+      subcategory: getRank(doc),
       int_id: doc._id,
       id: doc.id,
-      display_name: doc.name + getRank(doc),
+      display_name: doc.name,
       name: doc.name,
       fq_field: 'taxonomy__ancestors',
       fq_value: doc._id,
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
-        : -0.5 // penalize suggestions without genes
+        : -0.75 // penalize suggestions without genes
     };
     if (doc._id === 3702) { // hard coded boost for arabidopsis thaliana (over lyrata subsp, lyrata)
       solr.relevance *= 1.2;
@@ -92,10 +97,11 @@ var mongo2solr = {
   },
   domains: function(doc,genes,specificity) {
     var solr = {
-      category: 'InterPro', //doc.type, // Active_site Binding_site Conserved_site Domain Family PTM Repeat
+      category: 'InterPro',
+      subcategory: doc.type,
       int_id: doc._id,
       id: doc.id,
-      display_name: doc.name + ' (' + doc.type + ')',
+      display_name: doc.name,
       name: doc.name,
       description: doc.description,
       abstract: doc.abstract,
@@ -105,7 +111,7 @@ var mongo2solr = {
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
-        : -0.5 // penalize suggestions without genes
+        : -0.75 // penalize suggestions without genes
     };
     for (var f in doc) {
       if (!(solr.hasOwnProperty(f) || f === 'ancestors' || f === 'type')) {
@@ -132,7 +138,7 @@ var mongo2solr = {
       _genes: genes,
       relevance: genes
         ? 1/Math.sqrt(specificity) // prioritize more specific terms
-        : -0.5 // penalize suggestions without genes
+        : -0.75 // penalize suggestions without genes
     };
     return solr;
   }

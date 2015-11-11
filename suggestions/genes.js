@@ -12,7 +12,7 @@ http.read(url).then(function(data) {
   var n=0;
   for (var term in term_freq) {
     var solr = {
-      category    : 'Text',
+      category    : 'Genes',
       id          : '_term_'+ ++n,
       display_name: term,
       name        : term,
@@ -33,27 +33,28 @@ http.read(url).then(function(data) {
     }
   ).on('line', function(line) { // one JSON object per line
     var mongo = JSON.parse(line);
-    if (!mongo.description) {
-      mongo.description = 'unknown';
-    }
+    // if (!mongo.description) {
+    //   mongo.description = 'unknown';
+    // }
 
     var solr = {
       category     : 'Genes',
       fq_field     : 'id',
       fq_value     : mongo._id,
       id           : mongo._id,
-      description  : mongo.description.replace(/\s+\[Source:.*/,''), // strip off the [Source:...]
+      // description  : mongo.description.replace(/\s+\[Source:.*/,''), // strip off the [Source:...]
       display_name : mongo._id,
       _genes       : 1,
       relevance    : 0,
       taxon_id     : mongo.taxon_id
     };
-    if (mongo.name !== mongo._id) { //} && !term_freq.hasOwnProperty(mongo.name)) {
+    if (mongo.name !== mongo._id && !term_freq.hasOwnProperty(mongo.name)) {
       solr.name = mongo.name;
       solr.relevance=1;
-      solr.display_name += ' [' + mongo.name + ']';
+      // solr.display_name += ' [' + mongo.name + ']';
     }
 
+    // add uniquely identifying xrefs
     var xref_h = {};
     for (var db in mongo.xrefs) {
       if (!mongo.ancestors.hasOwnProperty(db)) { // aux cores
@@ -66,6 +67,7 @@ http.read(url).then(function(data) {
       return !term_freq[xr];
     });
 
+    // add uniquely identifying synonyms
     if (mongo.hasOwnProperty('synonyms')) {
       solr.synonym = mongo.synonyms.filter(function(syn) {
         return !term_freq[syn];
