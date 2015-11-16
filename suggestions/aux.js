@@ -138,7 +138,7 @@ var promises = _.map(mongo2solr, function(f,key) {
   console.error(key,'started');
   // do a facet query on the genes core on the  key__ancestors field
   var url = genesURL
-    + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map'
+    + '/query?rows=0&facet=true&facet.limit=-1&facet.mincount=1&json.nl=map'
     + '&facet.field=' + key + '__ancestors';
   return http.read(url).then(function(databuffer) {
     console.error(key,'got facets');
