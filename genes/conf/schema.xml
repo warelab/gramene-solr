@@ -30,7 +30,7 @@
 
  PERFORMANCE NOTE: this schema includes many optional features and should not
  be used for benchmarking.  To improve performance one could
-  - set stored="false" for all fields possible (esp large fields) when you
+  - set stored="true" for all fields possible (esp large fields) when you
     only need to search on the field but don't need to return the original
     value.
   - set indexed="false" if you don't need to search on the field, but only
@@ -49,12 +49,16 @@
    <field name="_version_" type="long" indexed="true" stored="true"/>
 
 	 <!-- basic info for display -->
+	 <field name="external_query" type="string" indexed="true" stored="true" multiValued="true"/>
+	 
    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" /> 
    <field name="name" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="description" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
 	 <field name="synonyms" type="text_general" indexed="true" stored="true" multiValued="true"/>
    <field name="taxon_id" type="int" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="biotype" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
+   <field name="system_name" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
+   <field name="db_type" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
 
    <!-- location fields -->
    <field name="map"    type="string" indexed="true" stored="true" />
@@ -79,12 +83,12 @@
    <!-- interpro domain architecture field -->
    <field name="domain_roots" type="text_ws" indexed="true" stored="true" multiValued="false"/>
 
-   <dynamicField name="*__xrefs"     type="string" indexed="true" stored="false" multiValued="true"/>
-   <dynamicField name="*__ancestors" type="int"    indexed="true" stored="false" multiValued="true"  docValues="true"/>
-   <dynamicField name="*__bin"       type="int"    indexed="true" stored="false" multiValued="false" docValues="true"/>
-	 <dynamicField name="transcript__*" type="int"   indexed="true" stored="false" multiValued="false" docValues="true"/>
-   <dynamicField name="protein__*"   type="float"  indexed="true" stored="false" multiValued="true"/>
-	 <dynamicField name="homology__*"  type="string" indexed="true" stored="false" multiValued="true"/>
+   <dynamicField name="*__xrefs"     type="string" indexed="true" stored="true" multiValued="true"/>
+   <dynamicField name="*__ancestors" type="int"    indexed="true" stored="true" multiValued="true"  docValues="true"/>
+   <dynamicField name="*__bin"       type="int"    indexed="true" stored="true" multiValued="false" docValues="true"/>
+	 <dynamicField name="transcript__*" type="int"   indexed="true" stored="true" multiValued="false" docValues="true"/>
+   <dynamicField name="protein__*"   type="float"  indexed="true" stored="true" multiValued="true"/>
+	 <dynamicField name="homology__*"  type="string" indexed="true" stored="true" multiValued="true"/>
 
 	 <!-- catchall field for text queries (see solrconfig query requestHandler for boosting ) -->
 	 <field name="text" type="text_general" indexed="true" stored="false" multiValued="true"/>
@@ -437,14 +441,14 @@
       </analyzer>
     </fieldType>
     
-    <fieldType name="phonetic" stored="false" indexed="true" class="solr.TextField" >
+    <fieldType name="phonetic" stored="true" indexed="true" class="solr.TextField" >
       <analyzer>
         <tokenizer class="solr.StandardTokenizerFactory"/>
         <filter class="solr.DoubleMetaphoneFilterFactory" inject="false"/>
       </analyzer>
     </fieldType>
 
-    <fieldType name="payloads" stored="false" indexed="true" class="solr.TextField" >
+    <fieldType name="payloads" stored="true" indexed="true" class="solr.TextField" >
       <analyzer>
         <tokenizer class="solr.WhitespaceTokenizerFactory"/>
         <!--
@@ -497,7 +501,7 @@
 
     <!-- since fields of this type are by default not stored or indexed,
          any data added to them will be ignored outright.  --> 
-    <fieldType name="ignored" stored="false" indexed="false" multiValued="true" class="solr.StrField" />
+    <fieldType name="ignored" stored="true" indexed="false" multiValued="true" class="solr.StrField" />
 
     <!-- This point type indexes the coordinates as separate fields (subFields)
       If subFieldType is defined, it references a type, and a dynamic field
@@ -527,7 +531,7 @@
      relevancy. -->
     <fieldType name="bbox" class="solr.BBoxField"
                geo="true" distanceUnits="kilometers" numberType="_bbox_coord" />
-    <fieldType name="_bbox_coord" class="solr.TrieDoubleField" precisionStep="8" docValues="true" stored="false"/>
+    <fieldType name="_bbox_coord" class="solr.TrieDoubleField" precisionStep="8" docValues="true" stored="true"/>
 
    <!-- Money/currency field type. See http://wiki.apache.org/solr/MoneyFieldType
         Parameters:

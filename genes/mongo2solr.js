@@ -34,7 +34,11 @@ collections.genes.mongoCollection().then(function(collection) {
 
         // additional field(s) for query/faceting
         biotype : mongo.biotype,
-        synonyms: mongo.synonyms
+        synonyms: mongo.synonyms,
+        
+        // so we know if it's coming from core or otherfeatures
+        db_type : mongo.db_type,
+        system_name : mongo.system_name
       };
 
       if (current_taxon !== mongo.taxon_id) {
@@ -93,14 +97,28 @@ collections.genes.mongoCollection().then(function(collection) {
         solr.transcript__exons = mongo.canonical_transcript.exons.length;
       }
 
-      // now deal with xrefs
+      // convert xrefs:{db:[list]} to db__xrefs:[list]
+      var ancestorFields = [];
       for (var db in mongo.xrefs) {
-        if (!mongo.ancestors.hasOwnProperty(db)) { // aux cores
+        if (collections.hasOwnProperty(db)) { // except for these
+          ancestorFields.push(db);
+        }
+        else {
           solr[db + '__xrefs'] = mongo.xrefs[db];
         }
       }
-      for (var c in mongo.ancestors) {
-        solr[c + '__ancestors'] = mongo.ancestors[c];
+      ancestorFields.forEach(function(f) {
+        var solrField = f + '__ancestors';
+        solr[solrField] = mongo.xrefs[f];
+        if (mongo.ancestors.hasOwnProperty(f)) {
+          mongo.ancestors[f].forEach(function(r) {
+            solr[solrField].push(r);
+          });
+        }
+      });
+      // special case for the ancestors of the grm_gene_tree_root_taxon_id
+      if (mongo.ancestors.hasOwnProperty('gene_family')) {
+        solr['gene_family__ancestors'] = mongo.ancestors.gene_family;
       }
 
       if (n===0) console.log('[');
