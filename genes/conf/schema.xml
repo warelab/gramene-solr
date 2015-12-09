@@ -59,6 +59,8 @@
    <field name="biotype" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
    <field name="system_name" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
    <field name="db_type" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
+	 
+	 <field name="capabilities" type="string" indexed="false" stored="true" required="true" multiValued="true"/>
 
    <!-- location fields -->
    <field name="map"    type="string" indexed="true" stored="true" />

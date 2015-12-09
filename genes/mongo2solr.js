@@ -38,7 +38,9 @@ collections.genes.mongoCollection().then(function(collection) {
         
         // so we know if it's coming from core or otherfeatures
         db_type : mongo.db_type,
-        system_name : mongo.system_name
+        system_name : mongo.system_name,
+        
+        capabilities : ['location']
       };
 
       if (current_taxon !== mongo.taxon_id) {
@@ -70,6 +72,7 @@ collections.genes.mongoCollection().then(function(collection) {
 
       // homology fields
       if (mongo.hasOwnProperty('homology')) {
+        solr.capabilities.push('homology');
         solr.grm_gene_tree_root_taxon_id = mongo.grm_gene_tree_root_taxon_id;
         solr.epl_gene_tree = mongo.epl_gene_tree;
         solr.grm_gene_tree = mongo.grm_gene_tree;
@@ -99,16 +102,22 @@ collections.genes.mongoCollection().then(function(collection) {
 
       // convert xrefs:{db:[list]} to db__xrefs:[list]
       var ancestorFields = [];
+      var hasXrefs = false;
       for (var db in mongo.xrefs) {
         if (collections.hasOwnProperty(db)) { // except for these
           ancestorFields.push(db);
         }
         else {
           solr[db + '__xrefs'] = mongo.xrefs[db];
+          hasXrefs=true;
         }
+      }
+      if (hasXrefs) {
+        solr.capabilities.push('xrefs');
       }
       ancestorFields.forEach(function(f) {
         var solrField = f + '__ancestors';
+        solr.capabilities.push(f);
         solr[solrField] = mongo.xrefs[f];
         if (mongo.ancestors.hasOwnProperty(f)) {
           mongo.ancestors[f].forEach(function(r) {
