@@ -12,7 +12,7 @@ collections.genes.mongoCollection().then(function(collection) {
     collections.closeMongoDatabase();
     var uniqueId = {};
     docs.forEach(function(d) {
-      uniqueId[d._id] = 1;
+      uniqueId[d._id.toUpperCase()] = 1;
     });
 
     // non-unique terms get their own doc with a relevant fq field
@@ -23,16 +23,19 @@ collections.genes.mongoCollection().then(function(collection) {
       var term_freq = JSON.parse(data).facet_counts.facet_fields._terms;
       var n=0;
       for (var term in term_freq) {
-        if (!uniqueId.hasOwnProperty(term)) {
+        var ucTerm = term.toUpperCase();
+        term_freq[ucTerm] = term_freq[term];
+        if (!uniqueId.hasOwnProperty(ucTerm)) {
+          var tf = term_freq[ucTerm];
           var solr = {
-            category    : 'Genes',
+            category    : 'Gene',
             id          : '_term_'+ ++n,
             display_name: term,
             name        : term,
             fq_field    : '_terms',
             fq_value    : term,
-            num_genes   : term_freq[term],
-            relevance   : term_freq[term] > 100 ? 1 : term_freq[term]/100
+            num_genes   : tf,
+            relevance   : tf > 100 ? 1 : tf/100
           };
           if (n===1) console.log('[');
           else console.log(',');
@@ -47,49 +50,65 @@ collections.genes.mongoCollection().then(function(collection) {
         }
       ).on('line', function(line) { // one JSON object per line
         var mongo = JSON.parse(line);
-        // if (!mongo.description) {
-        //   mongo.description = 'unknown';
-        // }
 
-        var solr = {
-          category     : 'Genes',
-          fq_field     : 'id',
-          fq_value     : mongo._id,
-          id           : mongo._id,
-          // description  : mongo.description.replace(/\s+\[Source:.*/,''), // strip off the [Source:...]
+        console.log(',');
+        console.log(JSON.stringify({
+          category : 'Gene',
+          fq_field : 'id',
+          fq_value : mongo._id,
+          id       : mongo._id,
           display_name : mongo._id,
-          num_genes    : 1,
-          relevance    : 0,
-          taxon_id     : mongo.taxon_id
-        };
-        if (mongo.name !== mongo._id && !term_freq.hasOwnProperty(mongo.name)) {
-          solr.name = mongo.name;
-          solr.relevance=1;
-          // solr.display_name += ' [' + mongo.name + ']';
-        }
+          num_genes : 1,
+          relevance : 0,
+          taxon_id : mongo.taxon_id
+        }));
 
         // add uniquely identifying xrefs
         var xref_h = {};
         for (var db in mongo.xrefs) {
-          if (!mongo.ancestors.hasOwnProperty(db)) { // aux cores
+          if (!collections.hasOwnProperty(db)) {
             mongo.xrefs[db].forEach(function(xr) {
               xref_h[xr]=db;
             });
           }
         }
-        solr.xref = Object.keys(xref_h).filter(function(xr) {
-          return !term_freq[xr];
+        Object.keys(xref_h).filter(function(xr) {
+          return !term_freq[xr.toUpperCase()];
+        }).forEach(function(xr) {
+          console.log(',');
+          console.log(JSON.stringify({
+            category : 'Gene',
+            fq_field : 'id',
+            fq_value : mongo._id,
+            id       : '_term_'+ ++n,
+            xref     : xr,
+            display_name : xr,
+            num_genes : 1,
+            relevance : 0,
+            taxon_id : mongo.taxon_id
+          }));
         });
 
         // add uniquely identifying synonyms
         if (mongo.hasOwnProperty('synonyms')) {
-          solr.synonym = mongo.synonyms.filter(function(syn) {
-            return !term_freq[syn];
+          mongo.synonyms.filter(function(syn) {
+            return !term_freq[syn.toUpperCase()];
+          }).forEach(function(syn) {
+            console.log(',');
+            console.log(JSON.stringify({
+              category : 'Gene',
+              fq_field : 'id',
+              fq_value : mongo._id,
+              id       : '_term_'+ ++n,
+              synonym  : syn,
+              display_name : syn,
+              num_genes : 1,
+              relevance : 0,
+              taxon_id : mongo.taxon_id
+            }));
           });
         }
 
-        console.log(',');
-        console.log(JSON.stringify(solr));
       }).on('close', function() {
         console.log(']');
       });
