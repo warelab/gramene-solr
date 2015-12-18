@@ -71,10 +71,14 @@
 	 <field name="gene_idx" type="int" indexed="true" stored="true" />
 
 	 <!-- representative homolog -->
-   <field name="rep_id" type="string" indexed="false" stored="true" /> 
-   <field name="rep_taxon_id" type="int" indexed="false" stored="true" /> 
-   <field name="rep_name" type="string" indexed="false" stored="true" /> 
-   <field name="rep_desc" type="string" indexed="false" stored="true" /> 
+   <field name="closest_rep_id" type="string" indexed="false" stored="true" /> 
+   <field name="closest_rep_taxon_id" type="int" indexed="true" stored="true" /> 
+   <field name="closest_rep_name" type="string" indexed="false" stored="true" /> 
+   <field name="closest_rep_description" type="string" indexed="false" stored="true" /> 
+   <field name="model_rep_id" type="string" indexed="false" stored="true" /> 
+   <field name="model_rep_taxon_id" type="int" indexed="false" stored="true" /> 
+   <field name="model_rep_name" type="string" indexed="false" stored="true" /> 
+   <field name="model_rep_description" type="string" indexed="false" stored="true" /> 
 
 	 <!-- additional fields for query/faceting -->
    <field name="grm_gene_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
@@ -96,8 +100,6 @@
 	 <field name="text" type="text_general" indexed="true" stored="false" multiValued="true"/>
 	 <copyField source="id" dest="text"/> <!-- added here to allow case insensitive search -->
 	 <copyField source="*__xrefs" dest="text"/>
-	 <copyField source="rep_name" dest="text"/>
-	 <copyField source="rep_desc" dest="text"/>
 
 	 <!-- string versions of text fields for faceting - to build the genes suggestions -->
 	 <field name="_terms" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>

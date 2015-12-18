@@ -1,6 +1,20 @@
 #!/usr/bin/env node
 var collections = require('gramene-mongodb-config');
 
+function get_rep(c) {
+  var rep = {
+    id: c.id,
+    taxon_id: c.taxon_id
+  };
+  if (c.hasOwnProperty('name')) {
+    rep.name = c.name;
+  }
+  if (c.hasOwnProperty('description')) {
+    rep.description = c.description.replace(/\s+\[Source:.*/,'');
+  }
+  return rep;
+}
+
 collections.genes.mongoCollection().then(function(collection) {
   var cursor = collection.find().sort([{'taxon_id':1},{'location.region':1},{'location.start':1}]);
   var n=0;
@@ -54,14 +68,20 @@ collections.genes.mongoCollection().then(function(collection) {
       solr.gene_idx = gene_offset;
 
       // representative homolog (for display purposes)
-      if (mongo.hasOwnProperty('representative') && mongo.representative.id !== solr.id) {
-        solr.rep_id = mongo.representative.id;
-        solr.rep_taxon_id = mongo.representative.taxon_id;
-        if (mongo.representative.hasOwnProperty('name')) {
-          solr.rep_name = mongo.representative.name;
+      if (mongo.hasOwnProperty('representative')) {
+        if (mongo.representative.hasOwnProperty('closest')) {
+          var rep = get_rep(mongo.representative.closest);
+          for (var f in rep) {
+            solr['closest_rep_'+f] = rep[f];
+          }
         }
-        if (mongo.representative.hasOwnProperty('description')) {
-          solr.rep_desc = mongo.representative.description.replace(/\s+\[Source:.*/,'');
+
+        if (mongo.representative.hasOwnProperty('model')) {
+          // solr.model_rep = get_rep(mongo.representative.model);
+          var rep = get_rep(mongo.representative.model);
+          for (var f in rep) {
+            solr['model_rep_'+f] = rep[f];
+          }
         }
       }
 
