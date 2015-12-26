@@ -51,7 +51,7 @@
 	 <!-- basic info for display -->
 	 <field name="external_query" type="string" indexed="true" stored="true" multiValued="true"/>
 	 
-   <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" /> 
+   <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" docValues="true"/> 
    <field name="name" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="description" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
 	 <field name="synonyms" type="text_general" indexed="true" stored="true" multiValued="true"/>
@@ -63,12 +63,12 @@
 	 <field name="capabilities" type="string" indexed="false" stored="true" required="true" multiValued="true"/>
 
    <!-- location fields -->
-   <field name="map"    type="string" indexed="true" stored="true" />
-   <field name="region" type="string" indexed="true" stored="true" />
-   <field name="start"  type="int" indexed="true" stored="true" />
-   <field name="end"    type="int" indexed="true" stored="true" />
- 	 <field name="strand" type="int" indexed="true" stored="true" />
-	 <field name="gene_idx" type="int" indexed="true" stored="true" />
+   <field name="map"    type="string" indexed="true" stored="true" docValues="true"/>
+   <field name="region" type="string" indexed="true" stored="true" docValues="true"/>
+   <field name="start"  type="int" indexed="true" stored="true" docValues="true"/>
+   <field name="end"    type="int" indexed="true" stored="true" docValues="true"/>
+ 	 <field name="strand" type="int" indexed="true" stored="true" docValues="true"/>
+	 <field name="gene_idx" type="int" indexed="true" stored="true" docValues="true"/>
 
 	 <!-- representative homolog -->
    <field name="closest_rep_id" type="string" indexed="false" stored="true" /> 
