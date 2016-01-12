@@ -26,7 +26,7 @@ var mongo2solr = {
       fq_field: 'GO__ancestors',
       fq_value: doc._id,
       num_genes: genes,
-      relevance: 1/Math.sqrt(specificity) // prioritize more specific terms
+      relevance: 1.1 - 0.1/Math.sqrt(specificity) // prioritize less specific GO terms
     };
     optionalFields.forEach(function(f) {
       if (doc.hasOwnProperty(f)) {
@@ -50,7 +50,7 @@ var mongo2solr = {
       fq_field: 'PO__ancestors',
       fq_value: doc._id,
       num_genes: genes,
-      relevance: 1/Math.sqrt(specificity) // prioritize more specific terms
+      relevance: 1.1 - 0.1/Math.sqrt(specificity) // prioritize less specific terms
     };
     optionalFields.forEach(function(f) {
       if (doc.hasOwnProperty(f)) {
@@ -79,10 +79,10 @@ var mongo2solr = {
       fq_field: 'taxonomy__ancestors',
       fq_value: doc._id,
       num_genes: genes,
-      relevance: 1/Math.sqrt(specificity) // prioritize more specific terms
+      relevance: 1.0 + 0.1/Math.sqrt(specificity) // prioritize more specific terms
     };
     if (doc._id === 3702) { // hard coded boost for arabidopsis thaliana (over lyrata subsp, lyrata)
-      solr.relevance *= 1.2;
+      solr.relevance *= 1.1;
     }
     if (doc.hasOwnProperty('synonym')) {
       solr.synonym = doc.synonym;
@@ -103,7 +103,7 @@ var mongo2solr = {
       fq_field: 'domains__ancestors',
       fq_value: doc._id,
       num_genes: genes,
-      relevance: 1/Math.sqrt(specificity) // prioritize more specific terms
+      relevance: 1.05 + 0.1/Math.sqrt(specificity) // prioritize more specific terms
     };
     for (var f in doc) {
       if (!(solr.hasOwnProperty(f) || f === 'ancestors' || f === 'type')) {
@@ -128,7 +128,7 @@ var mongo2solr = {
       fq_field: 'pathways__ancestors',
       fq_value: doc._id,
       num_genes: genes,
-      relevance: 1/Math.sqrt(specificity) // prioritize more specific terms
+      relevance: 1.2 - 0.1/Math.sqrt(specificity) // prioritize 
     };
     return solr;
   }
