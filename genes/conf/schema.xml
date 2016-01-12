@@ -94,11 +94,14 @@
    <dynamicField name="*__bin"       type="int"    indexed="true" stored="true" multiValued="false" docValues="true"/>
 	 <dynamicField name="transcript__*" type="int"   indexed="true" stored="true" multiValued="false" docValues="true"/>
    <dynamicField name="protein__*"   type="float"  indexed="true" stored="true" multiValued="true"/>
-	 <dynamicField name="homology__*"  type="string" indexed="true" stored="true" multiValued="true"/>
+	 <dynamicField name="homology__*"  type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
 
 	 <!-- catchall field for text queries (see solrconfig query requestHandler for boosting ) -->
 	 <field name="text" type="text_general" indexed="true" stored="false" multiValued="true"/>
-	 <copyField source="id" dest="text"/> <!-- added here to allow case insensitive search -->
+	 <copyField source="id" dest="text"/>
+	 <copyField source="name" dest="text"/>
+	 <copyField source="synonyms" dest="text"/>
+	 <copyField source="description" dest="text"/>
 	 <copyField source="*__xrefs" dest="text"/>
 
 	 <!-- string versions of text fields for faceting - to build the genes suggestions -->
