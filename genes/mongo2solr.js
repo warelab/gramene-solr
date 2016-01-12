@@ -99,8 +99,32 @@ collections.genes.mongoCollection().then(function(collection) {
         if (mongo.hasOwnProperty('epl_sibling_trees')) {
           solr.epl_sibling_trees = mongo.epl_sibling_trees;
         }
+        solr.homology__all_orthologs = [mongo._id];
+        solr.homology__all_homeologs = [mongo._id];
         for (htype in mongo.homology) {
           solr['homology__'+htype] = mongo.homology[htype];
+          if (htype.match(/ortholog/)) {
+            mongo.homology[htype].forEach(function(o) {
+              solr.homology__all_orthologs.push(o);
+            });
+          }
+          if (htype.match(/homeolog/)) {
+            mongo.homology[htype].forEach(function(h) {
+              solr.homology__all_homeologs.push(h);
+            });
+          }
+        }
+        if (solr.homology__all_homeologs.length === 1) {
+          delete solr.homology__all_homeologs;
+        }
+        if (solr.homology__all_orthologs.length === 1) {
+          delete solr.homology__all_orthologs;
+        }
+        if (solr.hasOwnProperty('homology__within_species_paralog')) {
+          solr.homology__within_species_paralog.push(mongo._id);
+        }
+        if (solr.hasOwnProperty('homology__gene_split')) {
+          solr.homology__gene_split.push(mongo._id);
         }
       }
 
