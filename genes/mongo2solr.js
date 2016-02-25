@@ -16,10 +16,8 @@ function get_rep(c) {
 }
 
 collections.genes.mongoCollection().then(function(collection) {
-  var cursor = collection.find().sort([{'taxon_id':1},{'location.region':1},{'location.start':1}]);
+  var cursor = collection.find().sort([{'db_type':1},{'taxon_id':1},{'gene_idx':1}]);
   var n=0;
-  var current_taxon=0;
-  var gene_offset = 0;
   cursor.each(function(err,mongo) {
     if (err) throw err;
     if (mongo == null) {
@@ -45,6 +43,7 @@ collections.genes.mongoCollection().then(function(collection) {
         start       : location.start,
         end         : location.end,
         strand      : location.strand,
+        gene_idx    : mongo.gene_idx,
 
         // additional field(s) for query/faceting
         biotype : mongo.biotype,
@@ -57,61 +56,52 @@ collections.genes.mongoCollection().then(function(collection) {
         capabilities : ['location']
       };
 
-      if (current_taxon !== mongo.taxon_id) {
-        gene_offset = 0;
-        current_taxon = mongo.taxon_id;
-      }
-      else {
-        gene_offset++;
-      }
-
-      solr.gene_idx = gene_offset;
-
-      // representative homolog (for display purposes)
-      if (mongo.hasOwnProperty('representative')) {
-        if (mongo.representative.hasOwnProperty('closest')) {
-          var rep = get_rep(mongo.representative.closest);
-          for (var f in rep) {
-            solr['closest_rep_'+f] = rep[f];
-          }
-        }
-
-        if (mongo.representative.hasOwnProperty('model')) {
-          // solr.model_rep = get_rep(mongo.representative.model);
-          var rep = get_rep(mongo.representative.model);
-          for (var f in rep) {
-            solr['model_rep_'+f] = rep[f];
-          }
-        }
-      }
-
       // facet counting on bin fields drives the taxagenomic distribution
       for (var field in mongo.bins) {
         solr[field + '__bin'] = mongo.bins[field];
       }
 
       // homology fields
-      if (mongo.hasOwnProperty('homology')) {
+      if (mongo.homology) {
         solr.capabilities.push('homology');
-        solr.grm_gene_tree_root_taxon_id = mongo.grm_gene_tree_root_taxon_id;
-        solr.epl_gene_tree = mongo.epl_gene_tree;
-        solr.grm_gene_tree = mongo.grm_gene_tree;
-        if (mongo.hasOwnProperty('epl_sibling_trees')) {
-          solr.epl_sibling_trees = mongo.epl_sibling_trees;
+        // representative homolog (for display purposes)
+        if (mongo.homology.gene_tree) {
+          solr.gene_tree_root_taxon_id = mongo.homology.gene_tree.root_taxon_id;
+          solr.gene_tree = mongo.homology.gene_tree.id;
+          if (mongo.homology.gene_tree.representative) {
+            var mhgr = mongo.homology.gene_tree.representative;
+            if (mhgr.closest) {
+              var rep = get_rep(mhgr.closest);
+              for (var f in rep) {
+                solr['closest_rep_'+f] = rep[f];
+              }
+            }
+
+            if (mhgr.hasOwnProperty('model')) {
+              var rep = get_rep(mhgr.model);
+              for (var f in rep) {
+                solr['model_rep_'+f] = rep[f];
+              }
+            }
+          }
         }
+
+        
         solr.homology__all_orthologs = [mongo._id];
         solr.homology__all_homeologs = [mongo._id];
         for (htype in mongo.homology) {
-          solr['homology__'+htype] = mongo.homology[htype];
-          if (htype.match(/ortholog/)) {
-            mongo.homology[htype].forEach(function(o) {
-              solr.homology__all_orthologs.push(o);
-            });
-          }
-          if (htype.match(/homeolog/)) {
-            mongo.homology[htype].forEach(function(h) {
-              solr.homology__all_homeologs.push(h);
-            });
+          if (Array.isArray(mongo.homology[htype])) {
+            solr['homology__'+htype] = mongo.homology[htype];
+            if (htype.match(/ortholog/)) {
+              mongo.homology[htype].forEach(function(o) {
+                solr.homology__all_orthologs.push(o);
+              });
+            }
+            if (htype.match(/homeolog/)) {
+              mongo.homology[htype].forEach(function(h) {
+                solr.homology__all_homeologs.push(h);
+              });
+            }
           }
         }
         if (solr.homology__all_homeologs.length === 1) {
@@ -128,50 +118,43 @@ collections.genes.mongoCollection().then(function(collection) {
         }
       }
 
-      // protein annotation fields
-      if (mongo.hasOwnProperty("canonical_translation")) {
-        if (!!mongo.canonical_translation.domain_roots) {
-          solr.domain_roots = mongo.canonical_translation.domain_roots;
+      // check if canonical transcript's translation has a domain architecture
+      var ct = mongo.gene_structure.canonical_transcript;
+      if (!(ct && mongo.gene_structure.transcripts[ct])) {
+        console.error("no canonical transcript in gene",mongo._id);
+        process.exit(2);
+      }
+      if (mongo.gene_structure.transcripts[ct].translation) {
+        var tl = mongo.gene_structure.transcripts[ct].translation;
+        if (tl.features.domain) {
+          solr.domain_roots = tl.features.domain.roots;
         }
-        ['avg_res_weight','charge','iso_point','length','molecular_weight'].forEach(function(fname) {
-          solr['protein__'+fname] = mongo.canonical_translation[fname];
-        });
+        solr.protein__length = tl.length;
       }
 
-      // transcript properties
-      if (mongo.hasOwnProperty('canonical_transcript')) {
-        solr.transcript__length = mongo.canonical_transcript.length;
-        solr.transcript__exons = mongo.canonical_transcript.exons.length;
-      }
+      // canonical transcript properties
+      solr.transcript__length = mongo.gene_structure.transcripts[ct].length;
+      solr.transcript__exons = mongo.gene_structure.transcripts[ct].exons.length;
+
+      solr.transcript__count = Object.keys(mongo.gene_structure.transcripts).length;
 
       // convert xrefs:{db:[list]} to db__xrefs:[list]
-      var ancestorFields = [];
       var hasXrefs = false;
       for (var db in mongo.xrefs) {
-        if (collections.hasOwnProperty(db)) { // except for these
-          ancestorFields.push(db);
-        }
-        else {
-          solr[db + '__xrefs'] = mongo.xrefs[db];
-          hasXrefs=true;
-        }
+        solr[db + '__xrefs'] = mongo.xrefs[db];
+        hasXrefs=true;
       }
       if (hasXrefs) {
         solr.capabilities.push('xrefs');
       }
-      ancestorFields.forEach(function(f) {
-        var solrField = f + '__ancestors';
-        solr.capabilities.push(f);
-        solr[solrField] = mongo.xrefs[f];
-        if (mongo.ancestors.hasOwnProperty(f)) {
-          mongo.ancestors[f].forEach(function(r) {
-            solr[solrField].push(r);
-          });
+
+      // add ancestors fields from the annotations section
+      for (var f in mongo.annotations) {
+        if (mongo.annotations[f].ancestors) {
+          solr.capabilities.push(f);
+          solrField = f + '__ancestors';
+          solr[solrField] = mongo.annotations[f].ancestors;
         }
-      });
-      // special case for the ancestors of the grm_gene_tree_root_taxon_id
-      if (mongo.ancestors.hasOwnProperty('gene_family')) {
-        solr['gene_family__ancestors'] = mongo.ancestors.gene_family;
       }
 
       if (n===0) console.log('[');

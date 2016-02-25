@@ -54,7 +54,7 @@
    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" docValues="true"/> 
    <field name="name" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="description" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
-	 <field name="synonyms" type="text_general" indexed="true" stored="true" multiValued="true"/>
+   <field name="synonyms" type="text_general" indexed="true" stored="true" multiValued="true"/>
    <field name="taxon_id" type="int" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="biotype" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
    <field name="system_name" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
@@ -81,10 +81,8 @@
    <field name="model_rep_description" type="string" indexed="false" stored="true" /> 
 
 	 <!-- additional fields for query/faceting -->
-   <field name="grm_gene_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
-   <field name="epl_gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
-   <field name="grm_gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
-   <field name="epl_sibling_trees" type="string" indexed="true" stored="true" multiValued="true"/>
+   <field name="gene_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
+   <field name="gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
 
    <!-- interpro domain architecture field -->
    <field name="domain_roots" type="text_ws" indexed="true" stored="true" multiValued="false"/>

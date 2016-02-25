@@ -15,7 +15,7 @@ collections.genes.mongoCollection().then(function(collection) {
     });
 
     collections.genetrees.mongoCollection().then(function(collection) {
-      collection.find({},{_id:1,node_taxon_id:1}).toArray(function(err,docs) {
+      collection.find({},{_id:1,taxon_id:1}).toArray(function(err,docs) {
         if (err) throw err;
         collections.closeMongoDatabase();
         var treeRootNodeTaxonId = {};
