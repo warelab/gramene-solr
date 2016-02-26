@@ -28,8 +28,8 @@ var mongo2solr = {
       num_genes: genes,
       relevance: 1.1 - 0.1/Math.sqrt(specificity) // prioritize less specific GO terms
     };
-    if (doc.subset && doc.subset.indexOf('goslim_plant') !== -1) {
-      solr.relevance+=0.1; // give goslim_plant terms a nice boost
+    if (doc.subset && doc.subset.indexOf('goslim_plant') === -1) {
+      solr.relevance-=0.05; // penalize non-goslim_plant terms
     }
     optionalFields.forEach(function(f) {
       if (doc.hasOwnProperty(f)) {
