@@ -16,7 +16,7 @@ function get_rep(c) {
 }
 
 collections.genes.mongoCollection().then(function(collection) {
-  var cursor = collection.find().sort([{'db_type':1},{'taxon_id':1},{'gene_idx':1}]);
+  var cursor = collection.find().sort([{'species_idx':1},{'db_type':1},{'gene_idx':1}]);
   var n=0;
   cursor.each(function(err,mongo) {
     if (err) throw err;
@@ -150,10 +150,23 @@ collections.genes.mongoCollection().then(function(collection) {
 
       // add ancestors fields from the annotations section
       for (var f in mongo.annotations) {
-        if (mongo.annotations[f].ancestors) {
+        if (mongo.annotations[f]) {
           solr.capabilities.push(f);
           solrField = f + '__ancestors';
-          solr[solrField] = mongo.annotations[f].ancestors;
+          if (mongo.annotations[f].ancestors) {
+            solr[solrField] = mongo.annotations[f].ancestors;
+          }
+          else {
+            solr[solrField] = [];
+          }
+          mongo.annotations[f].entries.forEach(function(e) {
+            if (e._id) {
+              solr[solrField].push(e._id);
+            }
+            else {
+              solr[solrField].push(parseInt(e.id.match(/\d+/)[0]));
+            }
+          })
         }
       }
 
