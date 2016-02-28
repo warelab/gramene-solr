@@ -126,7 +126,7 @@ collections.genes.mongoCollection().then(function(collection) {
       }
       if (mongo.gene_structure.transcripts[ct].translation) {
         var tl = mongo.gene_structure.transcripts[ct].translation;
-        if (tl.features.domain) {
+        if (tl.features && tl.features.domain) {
           solr.domain_roots = tl.features.domain.roots;
         }
         solr.protein__length = tl.length;
@@ -158,6 +158,9 @@ collections.genes.mongoCollection().then(function(collection) {
           }
           else {
             solr[solrField] = [];
+          }
+          if (!mongo.annotations[f].entries) {
+            console.error(mongo);
           }
           mongo.annotations[f].entries.forEach(function(e) {
             if (e._id) {
