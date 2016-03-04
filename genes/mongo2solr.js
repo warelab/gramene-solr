@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 var collections = require('gramene-mongodb-config');
+var _ = require('lodash');
 
 function get_rep(c) {
   var rep = {
@@ -120,12 +121,13 @@ collections.genes.mongoCollection().then(function(collection) {
 
       // check if canonical transcript's translation has a domain architecture
       var ct = mongo.gene_structure.canonical_transcript;
-      if (!(ct && mongo.gene_structure.transcripts[ct])) {
+      var tIdx = _.keyBy(mongo.gene_structure.transcripts,'id');
+      if (!(ct && tIdx[ct])) {
         console.error("no canonical transcript in gene",mongo._id);
         process.exit(2);
       }
-      if (mongo.gene_structure.transcripts[ct].translation) {
-        var tl = mongo.gene_structure.transcripts[ct].translation;
+      if (tIdx[ct].translation) {
+        var tl = tIdx[ct].translation;
         if (tl.features && tl.features.domain) {
           solr.domain_roots = tl.features.domain.roots;
         }
@@ -133,18 +135,16 @@ collections.genes.mongoCollection().then(function(collection) {
       }
 
       // canonical transcript properties
-      solr.transcript__length = mongo.gene_structure.transcripts[ct].length;
-      solr.transcript__exons = mongo.gene_structure.transcripts[ct].exons.length;
+      solr.transcript__length = tIdx[ct].length;
+      solr.transcript__exons = tIdx[ct].exons.length;
 
-      solr.transcript__count = Object.keys(mongo.gene_structure.transcripts).length;
+      solr.transcript__count = mongo.gene_structure.transcripts.length;
 
-      // convert xrefs:{db:[list]} to db__xrefs:[list]
-      var hasXrefs = false;
-      for (var db in mongo.xrefs) {
-        solr[db + '__xrefs'] = mongo.xrefs[db];
-        hasXrefs=true;
-      }
-      if (hasXrefs) {
+      // convert xrefs
+      if (mongo.xrefs) {
+        mongo.xrefs.forEach(function(xref) {
+          solr[xref.db + '__xrefs'] = xref.ids;
+        });
         solr.capabilities.push('xrefs');
       }
 

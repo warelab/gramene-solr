@@ -52,10 +52,10 @@ collections.genes.mongoCollection().then(function(collection) {
           }
       
           // gene tree suggestion
-          var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=grm_gene_tree';
+          var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=gene_tree';
           console.error(url);
           http.read(url).then(function(data) {
-            var tree_size = JSON.parse(data).facet_counts.facet_fields.grm_gene_tree;
+            var tree_size = JSON.parse(data).facet_counts.facet_fields.gene_tree;
             for (var tree in tree_size) {
               var solr = {
                 category    : 'Gene tree',
@@ -63,7 +63,7 @@ collections.genes.mongoCollection().then(function(collection) {
                 taxon_id    : treeRootNodeTaxonId[tree],
                 display_name: tree,
                 name        : tree,
-                fq_field    : 'grm_gene_tree',
+                fq_field    : 'gene_tree',
                 fq_value    : tree,
                 num_genes   : tree_size[tree],
                 relevance   : 1
@@ -114,30 +114,30 @@ collections.genes.mongoCollection().then(function(collection) {
                 }));
 
                 // add uniquely identifying xrefs
-                var xref_h = {};
-                for (var db in mongo.xrefs) {
-                  if (!collections.hasOwnProperty(db)) {
-                    mongo.xrefs[db].forEach(function(xr) {
-                      xref_h[xr]=db;
+                if (mongo.xrefs) {
+                  var xref_h = {};
+                  mongo.xrefs.forEach(function(xref) {
+                    xref.ids.forEach(function(id) {
+                      xref_h[id]=xref.db;
                     });
-                  }
+                  });
+                  Object.keys(xref_h).filter(function(xr) {
+                    return !term_freq[xr.toUpperCase()];
+                  }).forEach(function(xr) {
+                    console.log(',');
+                    console.log(JSON.stringify({
+                      category : 'Gene',
+                      fq_field : 'id',
+                      fq_value : mongo._id,
+                      id       : '_term_'+ ++n,
+                      xref     : xr,
+                      display_name : xr,
+                      num_genes : 1,
+                      relevance : 1.2,
+                      taxon_id : mongo.taxon_id
+                    }));
+                  });
                 }
-                Object.keys(xref_h).filter(function(xr) {
-                  return !term_freq[xr.toUpperCase()];
-                }).forEach(function(xr) {
-                  console.log(',');
-                  console.log(JSON.stringify({
-                    category : 'Gene',
-                    fq_field : 'id',
-                    fq_value : mongo._id,
-                    id       : '_term_'+ ++n,
-                    xref     : xr,
-                    display_name : xr,
-                    num_genes : 1,
-                    relevance : 1.2,
-                    taxon_id : mongo.taxon_id
-                  }));
-                });
 
                 // add uniquely identifying synonyms
                 if (mongo.hasOwnProperty('synonyms')) {
