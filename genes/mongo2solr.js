@@ -25,9 +25,10 @@ Array.prototype.swap = function (x,y) {
 
 collections.genes.mongoCollection().then(function(collection) {
   collection
-  .find({taxon_id:4577,db_type:'otherfeatures'},{_id:1,location:1,gene_idx:1})
+  .find({taxon_id:45770004,db_type:'otherfeatures'},{_id:1,location:1,gene_idx:1})
   .toArray(function(err,projectedGenes) {
     if (err) throw err;
+    console.error("we have",projectedGenes.length,"projectedGenes");
     // make sure they are sorted here because mongo wasn't having it
     for(var i=0;i<projectedGenes.length;i++) {
       if (i !== projectedGenes[i].gene_idx) projectedGenes.swap(i,projectedGenes[i].gene_idx);
