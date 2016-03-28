@@ -54,6 +54,7 @@
    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" docValues="true"/> 
    <field name="name" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="description" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
+   <field name="summary" type="text_general" indexed="true" stored="true" multiValued="false" required="false"/>
    <field name="synonyms" type="text_general" indexed="true" stored="true" multiValued="true"/>
    <field name="taxon_id" type="int" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="biotype" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
@@ -95,11 +96,12 @@
 	 <dynamicField name="homology__*"  type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
 
 	 <!-- catchall field for text queries (see solrconfig query requestHandler for boosting ) -->
-	 <field name="text" type="text_general" indexed="true" stored="false" multiValued="true"/>
+	 <field name="text" type="text_en_splitting_tight" indexed="true" stored="false" multiValued="true"/>
 	 <copyField source="id" dest="text"/>
 	 <copyField source="name" dest="text"/>
 	 <copyField source="synonyms" dest="text"/>
 	 <copyField source="description" dest="text"/>
+	 <copyField source="summary" dest="text"/>
 	 <copyField source="*__xrefs" dest="text"/>
 
 	 <!-- string versions of text fields for faceting - to build the genes suggestions -->

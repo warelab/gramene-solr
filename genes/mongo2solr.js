@@ -48,7 +48,7 @@ collections.genes.mongoCollection().then(function(collection) {
 
         // additional field(s) for query/faceting
         biotype : mongo.biotype,
-        synonyms: mongo.synonyms,
+        synonyms: mongo.synonyms || [],
         
         // so we know if it's coming from core or otherfeatures
         db_type : mongo.db_type,
@@ -56,6 +56,32 @@ collections.genes.mongoCollection().then(function(collection) {
         
         capabilities : ['location']
       };
+
+      solr.description.split(/\s+/).forEach(function(w) {
+        if (w.match(/^[a-z].*[0-9]$/i)) {
+          solr.synonyms.push(w);
+        }
+      });
+
+      // uniqify synonyms
+      var uniq = {};
+      uniq[solr.name]=1;
+      solr.synonyms.forEach(function(syn) {
+        if (!uniq.hasOwnProperty(syn)) {
+          uniq[syn]=1;
+        }
+      });
+      delete uniq[solr.name];
+      if (Object.keys(uniq).length > 0) {
+        solr.synonyms = Object.keys(uniq);
+      }
+      else {
+        delete solr.synonyms;
+      }
+      
+      if (mongo.summary) {
+        solr.summary = mongo.summary;
+      }
 
       // facet counting on bin fields drives the taxagenomic distribution
       for (var field in mongo.bins) {
