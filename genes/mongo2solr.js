@@ -49,12 +49,13 @@ collections.genes.mongoCollection().then(function(collection) {
         // additional field(s) for query/faceting
         biotype : mongo.biotype,
         synonyms: mongo.synonyms || [],
+        annotations: [],
         
         // so we know if it's coming from core or otherfeatures
         db_type : mongo.db_type,
         system_name : mongo.system_name,
         
-        capabilities : ['location']
+        capabilities : ['location'],
       };
 
       solr.description.split(/\s+/).forEach(function(w) {
@@ -113,35 +114,36 @@ collections.genes.mongoCollection().then(function(collection) {
           }
         }
 
-        
-        solr.homology__all_orthologs = [mongo._id];
-        solr.homology__all_homeologs = [mongo._id];
-        for (htype in mongo.homology) {
-          if (Array.isArray(mongo.homology[htype])) {
-            solr['homology__'+htype] = mongo.homology[htype];
-            if (htype.match(/ortholog/)) {
-              mongo.homology[htype].forEach(function(o) {
-                solr.homology__all_orthologs.push(o);
-              });
-            }
-            if (htype.match(/homeolog/)) {
-              mongo.homology[htype].forEach(function(h) {
-                solr.homology__all_homeologs.push(h);
-              });
+        if (mongo.homology.homologous_genes) {
+          solr.homology__all_orthologs = [mongo._id];
+          solr.homology__all_homeologs = [mongo._id];
+          for (htype in mongo.homology.homologous_genes) {
+            if (Array.isArray(mongo.homology.homologous_genes[htype])) {
+              solr['homology__'+htype] = mongo.homology.homologous_genes[htype];
+              if (htype.match(/ortholog/)) {
+                mongo.homology.homologous_genes[htype].forEach(function(o) {
+                  solr.homology__all_orthologs.push(o);
+                });
+              }
+              if (htype.match(/homeolog/)) {
+                mongo.homology.homologous_genes[htype].forEach(function(h) {
+                  solr.homology__all_homeologs.push(h);
+                });
+              }
             }
           }
-        }
-        if (solr.homology__all_homeologs.length === 1) {
-          delete solr.homology__all_homeologs;
-        }
-        if (solr.homology__all_orthologs.length === 1) {
-          delete solr.homology__all_orthologs;
-        }
-        if (solr.hasOwnProperty('homology__within_species_paralog')) {
-          solr.homology__within_species_paralog.push(mongo._id);
-        }
-        if (solr.hasOwnProperty('homology__gene_split')) {
-          solr.homology__gene_split.push(mongo._id);
+          if (solr.homology__all_homeologs.length === 1) {
+            delete solr.homology__all_homeologs;
+          }
+          if (solr.homology__all_orthologs.length === 1) {
+            delete solr.homology__all_orthologs;
+          }
+          if (solr.hasOwnProperty('homology__within_species_paralog')) {
+            solr.homology__within_species_paralog.push(mongo._id);
+          }
+          if (solr.hasOwnProperty('homology__gene_split')) {
+            solr.homology__gene_split.push(mongo._id);
+          }
         }
       }
 
@@ -175,6 +177,7 @@ collections.genes.mongoCollection().then(function(collection) {
       }
 
       // add ancestors fields from the annotations section
+      // and text of annotations (except taxonomy)
       for (var f in mongo.annotations) {
         if (mongo.annotations[f]) {
           solr.capabilities.push(f);
@@ -195,7 +198,13 @@ collections.genes.mongoCollection().then(function(collection) {
             else {
               solr[solrField].push(parseInt(e.id.match(/\d+/)[0]));
             }
-          })
+            if (f !== "taxonomy") {
+              if (e.id) solr.annotations.push(e.id);
+              if (e.name) solr.annotations.push(e.name);
+              if (e.description) solr.annotations.push(e.description);
+              if (e.def) solr.annotations.push(e.def);
+            }
+          });
         }
       }
 

@@ -54,6 +54,7 @@
    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" docValues="true"/> 
    <field name="name" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="description" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
+   <field name="annotations" type="text_general" indexed="true" stored="true" multiValued="true" required="false"/>
    <field name="summary" type="text_general" indexed="true" stored="true" multiValued="false" required="false"/>
    <field name="synonyms" type="text_general" indexed="true" stored="true" multiValued="true"/>
    <field name="taxon_id" type="int" indexed="true" stored="true" multiValued="false" required="true"/>
@@ -103,6 +104,7 @@
 	 <copyField source="description" dest="text"/>
 	 <copyField source="summary" dest="text"/>
 	 <copyField source="*__xrefs" dest="text"/>
+	 <copyField source="annotations" dest="text"/>
 
 	 <!-- string versions of text fields for faceting - to build the genes suggestions -->
 	 <field name="_terms" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
