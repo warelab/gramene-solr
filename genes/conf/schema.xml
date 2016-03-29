@@ -84,7 +84,7 @@
 
 	 <!-- additional fields for query/faceting -->
    <field name="gene_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
-   <field name="gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
+   <field name="gene_tree" type="string" indexed="true" stored="true" multiValued="true"/>
 
    <!-- interpro domain architecture field -->
    <field name="domain_roots" type="text_ws" indexed="true" stored="true" multiValued="false"/>

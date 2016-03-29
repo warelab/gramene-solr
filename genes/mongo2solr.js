@@ -95,7 +95,8 @@ collections.genes.mongoCollection().then(function(collection) {
         // representative homolog (for display purposes)
         if (mongo.homology.gene_tree) {
           solr.gene_tree_root_taxon_id = mongo.homology.gene_tree.root_taxon_id;
-          solr.gene_tree = mongo.homology.gene_tree.id;
+          solr.gene_tree = solr.gene_tree || [];
+          solr.gene_tree.push(mongo.homology.gene_tree.id);
           if (mongo.homology.gene_tree.representative) {
             var mhgr = mongo.homology.gene_tree.representative;
             if (mhgr.closest) {
@@ -112,6 +113,11 @@ collections.genes.mongoCollection().then(function(collection) {
               }
             }
           }
+        }
+        
+        if (mongo.homology.pan_tree) {
+          solr.gene_tree = solr.gene_tree || [];
+          solr.gene_tree.push(mongo.homology.pan_tree.id);
         }
 
         if (mongo.homology.homologous_genes) {
