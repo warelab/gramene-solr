@@ -97,7 +97,7 @@
 	 <dynamicField name="homology__*"  type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
 
 	 <!-- catchall field for text queries (see solrconfig query requestHandler for boosting ) -->
-	 <field name="text" type="text_en_splitting_tight" indexed="true" stored="false" multiValued="true"/>
+	 <field name="text" type="subword" indexed="true" stored="false" multiValued="true"/>
 	 <copyField source="id" dest="text"/>
 	 <copyField source="name" dest="text"/>
 	 <copyField source="synonyms" dest="text"/>
@@ -371,6 +371,38 @@
         <filter class="solr.PorterStemFilterFactory"/>
       </analyzer>
     </fieldType>
+
+
+    <fieldtype name="subword" class="solr.TextField">
+      <analyzer type="query">
+          <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+          <filter class="solr.WordDelimiterFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="0"
+                catenateNumbers="0"
+                catenateAll="0"
+                preserveOriginal="1"
+                />
+          <filter class="solr.LowerCaseFilterFactory"/>
+          <filter class="solr.StopFilterFactory"/>
+          <filter class="solr.PorterStemFilterFactory"/>
+      </analyzer>
+      <analyzer type="index">
+          <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+          <filter class="solr.WordDelimiterFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="1"
+                catenateAll="0"
+                preserveOriginal="1"
+                />
+          <filter class="solr.LowerCaseFilterFactory"/>
+          <filter class="solr.StopFilterFactory"/>
+          <filter class="solr.PorterStemFilterFactory"/>
+      </analyzer>
+    </fieldtype>
 
     <!-- Less flexible matching, but less false matches.  Probably not ideal for product names,
          but may be good for SKUs.  Can insert dashes in the wrong place and still match. -->
