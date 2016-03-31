@@ -1038,10 +1038,7 @@
        <!-- Query settings -->
        <str name="defType">edismax</str>
        <str name="qf">
-          id^5.0 int_id^5.0
-					name^3.0 synonym^2.0
-					description^1.3 def^1.3 abstract^1.2
-					xref^2.0 comment^1.0
+          id^5.0 name^3.0 synonym^2.0 text^1.0
        </str>
        <str name="mm">100%</str>
        <str name="q.alt">*:*</str>

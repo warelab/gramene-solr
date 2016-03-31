@@ -132,19 +132,30 @@
 	 <field name="fq_value" type="string" indexed="false" stored="true" required="true" multiValued="false" />
    <field name="num_genes" type="int" indexed="false" stored="true" required="true" multiValued="false" />
 	 <field name="relevance" type="float" indexed="true" stored="true" required="true" multiValued="false" />
-   <field name="id" type="text_general" indexed="true" stored="true" required="true" multiValued="false" /> 
+   <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" /> 
 	 <field name="category" type="string" indexed="true" stored="true" required="true" multiValued="false" docValues="true" />
 	 <field name="subcategory" type="string" indexed="false" stored="true" required="false" multiValued="false" />
-	 <field name="name" type="text_general" indexed="true" stored="true" required="false" multiValued="false" />
+	 <field name="name" type="subword" indexed="true" stored="true" required="false" multiValued="false" />
 	 <field name="display_name" type="string" indexed="false" stored="true" required="true" multiValued="false" /> 
    <field name="taxon_id" type="int" indexed="true" stored="true" required="false" multiValued="false" />
 
 	 <field name="def" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />
 	 <field name="description" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />
 	 <field name="abstract" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />
-	 <field name="synonym" type="text_general" indexed="true" stored="false" required="false" multiValued="true" />
-	 <field name="xref" type="text_general" indexed="true" stored="false" required="false" multiValued="true" />
+	 <field name="synonym" type="subword" indexed="true" stored="false" required="false" multiValued="true" />
+	 <field name="xref" type="string" indexed="true" stored="false" required="false" multiValued="true" />
 	 <field name="comment" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />
+	 
+	 <field name="text" type="subword" indexed="true" stored="false" multiValued="true"/>
+	 <copyField source="id" dest="text"/>
+	 <copyField source="name" dest="text"/>
+	 <copyField source="synonym" dest="text"/>
+	 <copyField source="description" dest="text"/>
+	 <copyField source="xref" dest="text"/>
+	 <copyField source="def" dest="text"/>
+	 <copyField source="abstract" dest="text"/>
+	 <copyField source="comment" dest="text"/>
+
  <!-- Field to use to determine and enforce document uniqueness. 
       Unless this field is marked with required="false", it will be a required field
    -->
@@ -423,6 +434,43 @@
         <filter class="solr.PorterStemFilterFactory"/>
       </analyzer>
     </fieldType>
+
+    <fieldtype name="subword" class="solr.TextField">
+      <analyzer type="query">
+          <tokenizer class="solr.PatternTokenizerFactory" pattern="[/;\s]"/>
+          <filter class="solr.WordDelimiterFilterFactory"
+				splitOnNumerics="0"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="0"
+                catenateNumbers="0"
+                catenateAll="1"
+                preserveOriginal="1"
+                />
+          <filter class="solr.LowerCaseFilterFactory"/>
+		  <filter class="solr.LengthFilterFactory" min="2" max="100"/>
+          <filter class="solr.StopFilterFactory"/>
+          <filter class="solr.PorterStemFilterFactory"/>
+          <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+      <analyzer type="index">
+          <tokenizer class="solr.PatternTokenizerFactory" pattern="[/;\s]"/>
+          <filter class="solr.WordDelimiterFilterFactory"
+				splitOnNumerics="1"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="0"
+                catenateNumbers="0"
+                catenateAll="1"
+                preserveOriginal="1"
+                />
+          <filter class="solr.LowerCaseFilterFactory"/>
+		  <filter class="solr.LengthFilterFactory" min="2" max="100"/>
+          <filter class="solr.StopFilterFactory"/>
+          <filter class="solr.PorterStemFilterFactory"/>
+          <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldtype>
 
     <!-- Less flexible matching, but less false matches.  Probably not ideal for product names,
          but may be good for SKUs.  Can insert dashes in the wrong place and still match. -->
