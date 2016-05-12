@@ -95,8 +95,7 @@ collections.genes.mongoCollection().then(function(collection) {
         // representative homolog (for display purposes)
         if (mongo.homology.gene_tree) {
           solr.gene_tree_root_taxon_id = mongo.homology.gene_tree.root_taxon_id;
-          solr.gene_tree = solr.gene_tree || [];
-          solr.gene_tree.push(mongo.homology.gene_tree.id);
+          solr.gene_tree = mongo.homology.gene_tree.id;
           if (mongo.homology.gene_tree.representative) {
             var mhgr = mongo.homology.gene_tree.representative;
             if (mhgr.closest) {
@@ -116,8 +115,8 @@ collections.genes.mongoCollection().then(function(collection) {
         }
         
         if (mongo.homology.pan_tree) {
-          solr.gene_tree = solr.gene_tree || [];
-          solr.gene_tree.push(mongo.homology.pan_tree.id);
+          solr.pan_tree = mongo.homology.pan_tree.id;
+          solr.pan_tree_root_taxon_id = mongo.homology.pan_tree.root_taxon_id;
         }
 
         if (mongo.homology.homologous_genes) {
@@ -185,7 +184,7 @@ collections.genes.mongoCollection().then(function(collection) {
       // add ancestors fields from the annotations section
       // and text of annotations (except taxonomy)
       for (var f in mongo.annotations) {
-        if (mongo.annotations[f]) {
+        if (mongo.annotations[f] && (mongo.annotations[f].ancestors || mongo.annotations[f].entries)) {
           solr.capabilities.push(f);
           solrField = f + '__ancestors';
           if (mongo.annotations[f].ancestors) {
@@ -194,23 +193,22 @@ collections.genes.mongoCollection().then(function(collection) {
           else {
             solr[solrField] = [];
           }
-          if (!mongo.annotations[f].entries) {
-            console.error(mongo);
+          if (mongo.annotations[f].entries) {
+            mongo.annotations[f].entries.forEach(function(e) {
+              if (e._id) {
+                solr[solrField].push(e._id);
+              }
+              else {
+                solr[solrField].push(parseInt(e.id.match(/\d+/)[0]));
+              }
+              if (f !== "taxonomy") {
+                if (e.id) solr.annotations.push(e.id);
+                if (e.name) solr.annotations.push(e.name);
+                if (e.description) solr.annotations.push(e.description);
+                if (e.def) solr.annotations.push(e.def);
+              }
+            });
           }
-          mongo.annotations[f].entries.forEach(function(e) {
-            if (e._id) {
-              solr[solrField].push(e._id);
-            }
-            else {
-              solr[solrField].push(parseInt(e.id.match(/\d+/)[0]));
-            }
-            if (f !== "taxonomy") {
-              if (e.id) solr.annotations.push(e.id);
-              if (e.name) solr.annotations.push(e.name);
-              if (e.description) solr.annotations.push(e.description);
-              if (e.def) solr.annotations.push(e.def);
-            }
-          });
         }
       }
 

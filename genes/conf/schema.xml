@@ -82,9 +82,11 @@
    <field name="model_rep_name" type="string" indexed="false" stored="true" /> 
    <field name="model_rep_description" type="string" indexed="false" stored="true" /> 
 
-	 <!-- additional fields for query/faceting -->
+	<!-- additional fields for query/faceting -->
+   <field name="gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
+   <field name="pan_tree" type="string" indexed="true" stored="true" multiValued="false"/>
    <field name="gene_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
-   <field name="gene_tree" type="string" indexed="true" stored="true" multiValued="true"/>
+   <field name="pan_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
 
    <!-- interpro domain architecture field -->
    <field name="domain_roots" type="text_ws" indexed="true" stored="true" multiValued="false"/>
