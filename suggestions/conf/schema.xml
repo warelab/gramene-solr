@@ -137,7 +137,8 @@
 	 <field name="subcategory" type="string" indexed="false" stored="true" required="false" multiValued="false" />
 	 <field name="name" type="subword" indexed="true" stored="true" required="false" multiValued="false" />
 	 <field name="display_name" type="string" indexed="false" stored="true" required="true" multiValued="false" /> 
-   <field name="taxon_id" type="int" indexed="true" stored="true" required="false" multiValued="false" />
+   <field name="taxon_id" type="int" indexed="true" stored="true" required="true" multiValued="true" />
+   <field name="taxon_freq" type="int" indexed="false" stored="true" required="true" multiValued="true" />
 
 	 <field name="def" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />
 	 <field name="description" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />
