@@ -68,7 +68,7 @@ collections.genes.mongoCollection().then(function(collection) {
               }
             }
           });
-
+          console.error("WAXY",term_freq.WAXY,taxa_lut.WAXY);
           // find all the terms in each species
           Object.keys(uniqueTaxa).forEach(function(taxon_id) {
             var url = genesURL + '/query?rows=0&facet=true&facet.field=_terms&facet.limit=-1&json.nl=map&facet.mincount=1&q=taxon_id:'+taxon_id;
@@ -77,10 +77,16 @@ collections.genes.mongoCollection().then(function(collection) {
             var term_tally = JSON.parse(res.getBody()).facet_counts.facet_fields._terms;
             for (var t in term_tally) {
               var term = t.toUpperCase();
-              if (term_freq.hasOwnProperty(term) && !taxa_lut[term].hasOwnProperty(taxon_id)) { // this is a non-unique term that appears only once in this genome
-                taxa_lut[term][taxon_id] = term_tally[t];
+              if (term_freq.hasOwnProperty(term)) {
+                if (taxa_lut[term].hasOwnProperty(taxon_id)) {
+                  taxa_lut[term][taxon_id] += term_tally[t];
+                }
+                else {
+                  taxa_lut[term][taxon_id] = term_tally[t];
+                }
               }
             }
+            console.error("WAXY",term_freq.WAXY,taxa_lut.WAXY);
           });
           
           console.error("finished building taxa_lut");

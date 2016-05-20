@@ -451,7 +451,7 @@
           <filter class="solr.LowerCaseFilterFactory"/>
 		  <filter class="solr.LengthFilterFactory" min="2" max="100"/>
           <filter class="solr.StopFilterFactory"/>
-          <filter class="solr.PorterStemFilterFactory"/>
+          <!-- <filter class="solr.PorterStemFilterFactory"/> -->
           <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
       <analyzer type="index">
@@ -468,7 +468,7 @@
           <filter class="solr.LowerCaseFilterFactory"/>
 		  <filter class="solr.LengthFilterFactory" min="2" max="100"/>
           <filter class="solr.StopFilterFactory"/>
-          <filter class="solr.PorterStemFilterFactory"/>
+          <!-- <filter class="solr.PorterStemFilterFactory"/> -->
           <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
     </fieldtype>
