@@ -46,7 +46,7 @@ collections.genes.mongoCollection().then(function(collection) {
           var term_freq = {};
           var taxa_lut = {};
           JSON.parse(data).facet_counts.facet_pivot['_terms,taxon_id'].forEach(function(d) {
-            var term = d.value.toUpperCase();
+            var term = d.value; // .toUpperCase(); // don't do this it leads to problems
             if (!uniqueId.hasOwnProperty(term)) {
               if (term_freq.hasOwnProperty(term)) {
                 term_freq[term] += d.count;
@@ -76,7 +76,7 @@ collections.genes.mongoCollection().then(function(collection) {
             var res = request('GET',url);
             var term_tally = JSON.parse(res.getBody()).facet_counts.facet_fields._terms;
             for (var t in term_tally) {
-              var term = t.toUpperCase();
+              var term = t; // .toUpperCase(); // don't do this it leads to problems
               if (term_freq.hasOwnProperty(term)) {
                 if (taxa_lut[term].hasOwnProperty(taxon_id)) {
                   taxa_lut[term][taxon_id] += term_tally[t];
@@ -100,6 +100,7 @@ collections.genes.mongoCollection().then(function(collection) {
             }
             var solr = {
               category    : 'Gene',
+              subcategory : 'term',
               id          : '_term_'+ ++n,
               display_name: term,
               name        : term,
@@ -172,6 +173,7 @@ collections.genes.mongoCollection().then(function(collection) {
                 console.log(',');
                 console.log(JSON.stringify({
                   category : 'Gene',
+                  subcategory : 'id',
                   fq_field : 'id',
                   fq_value : mongo._id,
                   id       : mongo._id,
@@ -191,11 +193,12 @@ collections.genes.mongoCollection().then(function(collection) {
                     });
                   });
                   Object.keys(xref_h).filter(function(xr) {
-                    return !term_freq[xr.toUpperCase()];
+                    return !term_freq[xr];
                   }).forEach(function(xr) {
                     console.log(',');
                     console.log(JSON.stringify({
                       category : 'Gene',
+                      subcategory : 'xref',
                       fq_field : 'id',
                       fq_value : mongo._id,
                       id       : '_term_'+ ++n,
@@ -212,11 +215,12 @@ collections.genes.mongoCollection().then(function(collection) {
                 // add uniquely identifying synonyms
                 if (mongo.hasOwnProperty('synonyms')) {
                   mongo.synonyms.filter(function(syn) {
-                    return !term_freq[syn.toUpperCase()];
+                    return !term_freq[syn];
                   }).forEach(function(syn) {
                     console.log(',');
                     console.log(JSON.stringify({
                       category : 'Gene',
+                      subcategory : 'synonym',
                       fq_field : 'id',
                       fq_value : mongo._id,
                       id       : '_term_'+ ++n,
