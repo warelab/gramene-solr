@@ -109,10 +109,10 @@
 
 	 <!-- string versions of text fields for faceting - to build the genes suggestions -->
 	 <field name="_terms" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
-	 <copyField source="id" dest="_terms"/>
+	 <!-- <copyField source="id" dest="_terms"/>
 	 <copyField source="name" dest="_terms"/>
 	 <copyField source="synonyms" dest="_terms"/>
-	 <copyField source="*__xrefs" dest="_terms"/>
+	 <copyField source="*__xrefs" dest="_terms"/> -->
 	 
 
  <!-- Field to use to determine and enforce document uniqueness. 

@@ -19,6 +19,7 @@ function get_rep(c) {
 collections.genes.mongoCollection().then(function(collection) {
   var cursor = collection.find().sort([{'species_idx':1},{'db_type':1},{'gene_idx':1}]);
   var n=0;
+  var terminator = {}; // key is lowercase version, value is original term
   cursor.each(function(err,mongo) {
     if (err) throw err;
     if (mongo == null) {
@@ -66,19 +67,27 @@ collections.genes.mongoCollection().then(function(collection) {
 
       // uniqify synonyms
       var uniq = {};
-      uniq[solr.name]=1;
+      var lcName = solr.name.toLowerCase();
+      var lcId = solr.id.toLowerCase();
+      uniq[lcName]=solr.name;
+      uniq[lcId] = solr.id;
       solr.synonyms.forEach(function(syn) {
-        if (!uniq.hasOwnProperty(syn)) {
-          uniq[syn]=1;
+        var lc = syn.toLowerCase();
+        if (!uniq.hasOwnProperty(lc)) {
+          uniq[lc]=syn;
         }
       });
-      delete uniq[solr.name];
+      delete uniq[lcName];
+      delete uniq[lcId];
       if (Object.keys(uniq).length > 0) {
-        solr.synonyms = Object.keys(uniq);
+        solr.synonyms = Object.keys(uniq).map(function(k){return uniq[k]});
       }
       else {
         delete solr.synonyms;
       }
+      // put the id and name back in
+      uniq[lcName] = solr.name;
+      uniq[lcId] = solr.id;
       
       if (mongo.summary) {
         solr.summary = mongo.summary;
@@ -177,10 +186,21 @@ collections.genes.mongoCollection().then(function(collection) {
       if (mongo.xrefs) {
         mongo.xrefs.forEach(function(xref) {
           solr[xref.db + '__xrefs'] = xref.ids;
+          xref.ids.forEach(function(id) {
+            if (_.isString(id)) {
+              var lc = id.toLowerCase();
+              if (!uniq.hasOwnProperty(lc)) {
+                uniq[lc]=id;
+              }
+            }
+          })
         });
         solr.capabilities.push('xrefs');
       }
-
+      // get we don't want id in _terms
+      delete uniq[lcId];
+      solr._terms = Object.keys(uniq).map(function(k){return uniq[k]});
+      
       // add ancestors fields from the annotations section
       // and text of annotations (except taxonomy)
       for (var f in mongo.annotations) {
