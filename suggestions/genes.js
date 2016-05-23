@@ -68,7 +68,6 @@ collections.genes.mongoCollection().then(function(collection) {
               }
             }
           });
-          console.error("WAXY",term_freq.WAXY,taxa_lut.WAXY);
           // find all the terms in each species
           Object.keys(uniqueTaxa).forEach(function(taxon_id) {
             var url = genesURL + '/query?rows=0&facet=true&facet.field=_terms&facet.limit=-1&json.nl=map&facet.mincount=1&q=taxon_id:'+taxon_id;
@@ -86,7 +85,6 @@ collections.genes.mongoCollection().then(function(collection) {
                 }
               }
             }
-            console.error("WAXY",term_freq.WAXY,taxa_lut.WAXY);
           });
           
           console.error("finished building taxa_lut");
