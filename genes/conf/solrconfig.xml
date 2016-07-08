@@ -883,6 +883,7 @@
      <lst name="defaults">
        <str name="echoParams">explicit</str>
        <str name="wt">json</str>
+	   <str name="sort">gene_idx asc</str>
        <str name="indent">true</str>
 			 <str name="defType">edismax</str>
 			 <str name="qf">

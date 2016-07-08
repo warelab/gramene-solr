@@ -45,7 +45,7 @@ collections.genes.mongoCollection().then(function(collection) {
         start       : location.start,
         end         : location.end,
         strand      : location.strand,
-        gene_idx    : mongo.gene_idx,
+        gene_idx    : n,
 
         // additional field(s) for query/faceting
         biotype : mongo.biotype,
