@@ -59,6 +59,14 @@ collections.genes.mongoCollection().then(function(collection) {
         capabilities : ['location'],
       };
 
+      function generateNeighborhood(start,n) {
+        var arr = Array.apply(null, Array(n));
+        return arr.map(function (x, i) { return start + i });
+      }
+      solr.neighbors_5 = generateNeighborhood(n-5, 2*5 + 1);
+      solr.neighbors_10 = generateNeighborhood(n-10, 2*10 + 1);
+      solr.neighbors_20 = generateNeighborhood(n-20, 2*20 + 1);
+
       solr.description.split(/\s+/).forEach(function(w) {
         if (w.match(/^[a-z].*[0-9]$/i)) {
           solr.synonyms.push(w);
