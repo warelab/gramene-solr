@@ -70,7 +70,8 @@
    <field name="start"  type="int" indexed="true" stored="true" docValues="true"/>
    <field name="end"    type="int" indexed="true" stored="true" docValues="true"/>
  	 <field name="strand" type="int" indexed="true" stored="true" docValues="true"/>
-	 <field name="gene_idx" type="int" indexed="true" stored="true" multiValued="true" docValues="true"/>
+	 <field name="gene_idx" type="int" indexed="true" stored="true" multiValued="false"/>
+	 <field name="gene_idx_multi" type="int" indexed="true" stored="true" multiValued="true"/>
 
 	 <!-- representative homolog -->
    <field name="closest_rep_id" type="string" indexed="false" stored="true" /> 
@@ -97,7 +98,7 @@
 	 <dynamicField name="transcript__*" type="int"   indexed="true" stored="true" multiValued="false" docValues="true"/>
    <dynamicField name="protein__*"   type="float"  indexed="true" stored="true" multiValued="true"/>
 	 <dynamicField name="homology__*"  type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
-	 <dynamicField name="neighbors_*" type="int" indexed="true" stored="true" multiValued="true" docValues="true"/>
+	 <dynamicField name="neighbors_*" type="int" indexed="true" stored="true" multiValued="true"/>
 
 
 	 <field name="dna" type="dna" indexed="true" stored="true" multiValued="false"/>
@@ -110,6 +111,7 @@
 	 <copyField source="description" dest="text"/>
 	 <copyField source="*__xrefs" dest="text"/>
 	 <copyField source="annotations" dest="text"/>
+	 <copyField source="gene_idx" dest="gene_idx_multi"/>
 
 	 <!-- string versions of text fields for faceting - to build the genes suggestions -->
 	 <field name="_terms" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
