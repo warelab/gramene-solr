@@ -70,7 +70,7 @@
    <field name="start"  type="int" indexed="true" stored="true" docValues="true"/>
    <field name="end"    type="int" indexed="true" stored="true" docValues="true"/>
  	 <field name="strand" type="int" indexed="true" stored="true" docValues="true"/>
-	 <field name="gene_idx" type="int" indexed="true" stored="true" docValues="true"/>
+	 <field name="gene_idx" type="int" indexed="true" stored="true" multiValued="true" docValues="true"/>
 
 	 <!-- representative homolog -->
    <field name="closest_rep_id" type="string" indexed="false" stored="true" /> 
@@ -97,6 +97,7 @@
 	 <dynamicField name="transcript__*" type="int"   indexed="true" stored="true" multiValued="false" docValues="true"/>
    <dynamicField name="protein__*"   type="float"  indexed="true" stored="true" multiValued="true"/>
 	 <dynamicField name="homology__*"  type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
+	 <dynamicField name="neighbors_*" type="int" indexed="true" stored="true" multiValued="true" docValues="true"/>
 
 
 	 <field name="dna" type="dna" indexed="true" stored="true" multiValued="false"/>
