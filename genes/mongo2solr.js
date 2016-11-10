@@ -105,6 +105,10 @@ collections.genes.mongoCollection().then(function(collection) {
       for (var field in mongo.bins) {
         solr[field + '__bin'] = mongo.bins[field];
       }
+      
+      if (mongo.expression) {
+        solr.capabilities.push('expression');
+      }
 
       // homology fields
       if (mongo.homology) {
