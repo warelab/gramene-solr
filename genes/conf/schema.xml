@@ -105,7 +105,7 @@
 	 
 	 <!-- catchall field for text queries (see solrconfig query requestHandler for boosting ) -->
 	 <field name="text" type="subword" indexed="true" stored="false" multiValued="true"/>
-	 <copyField source="id" dest="text"/>
+	 <!-- <copyField source="id" dest="text"/> -->
 	 <copyField source="name" dest="text"/>
 	 <copyField source="synonyms" dest="text"/>
 	 <copyField source="description" dest="text"/>
