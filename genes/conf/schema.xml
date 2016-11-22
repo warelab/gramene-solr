@@ -51,7 +51,7 @@
 	 <!-- basic info for display -->
 	 <field name="external_query" type="string" indexed="true" stored="true" multiValued="true"/>
 	 
-   <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" docValues="true"/> 
+   <field name="id" type="text_lc" indexed="true" stored="true" required="true" multiValued="false"/> 
    <field name="name" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="description" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="annotations" type="text_general" indexed="true" stored="true" multiValued="true" required="false"/>
@@ -263,6 +263,14 @@
     <fieldType name="text_ws" class="solr.TextField" positionIncrementGap="100">
       <analyzer>
         <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+      </analyzer>
+    </fieldType>
+
+    <!-- A text text field for case insensitive exact word matching -->
+    <fieldType name="text_lc" class="solr.TextField">
+      <analyzer>
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
       </analyzer>
     </fieldType>
 
