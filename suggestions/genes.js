@@ -20,13 +20,19 @@ function getTaxa(query) {
 // read all of the unique ids from the genes collection
 // to avoid suggesting them as non-unique terms when they are mentioned as an xref or something in another gene
 collections.genes.mongoCollection().then(function(collection) {
-  collection.find({},{_id:1, taxon_id:1}).toArray(function(err,docs) {
+  collection.find({},{_id:1, taxon_id:1, db_type:1}).toArray(function(err,docs) {
     if (err) throw err;
     var uniqueId = {};
+    var otherfeaturesId = {};
     var uniqueTaxa = {};
+    var originalCase = {};
     docs.forEach(function(d) {
+      if (d.db_type != 'core') {
+        otherfeaturesId[d._id.toUpperCase()] = d.taxon_id;
+      }
       uniqueTaxa[d.taxon_id] = 1;
       uniqueId[d._id.toUpperCase()] = d.taxon_id;
+      originalCase[d._id.toUpperCase()] = d._id;
     });
 
     collections.genetrees.mongoCollection().then(function(collection) {
@@ -168,20 +174,6 @@ collections.genes.mongoCollection().then(function(collection) {
               ).on('line', function(line) { // one JSON object per line
                 var mongo = JSON.parse(line);
 
-                console.log(',');
-                console.log(JSON.stringify({
-                  category : 'Gene',
-                  subcategory : 'id',
-                  fq_field : 'id',
-                  fq_value : mongo._id,
-                  id       : mongo._id,
-                  display_name : mongo._id,
-                  num_genes : 1,
-                  relevance : 1.2,
-                  taxon_id : [mongo.taxon_id],
-                  taxon_freq : [1]
-                }));
-
                 // add uniquely identifying xrefs
                 if (mongo.xrefs) {
                   var xref_h = {};
@@ -215,6 +207,9 @@ collections.genes.mongoCollection().then(function(collection) {
                   mongo.synonyms.filter(function(syn) {
                     return !term_freq[syn];
                   }).forEach(function(syn) {
+                    if (otherfeaturesId[syn]) {
+                      delete uniqueId[syn];
+                    }
                     console.log(',');
                     console.log(JSON.stringify({
                       category : 'Gene',
@@ -233,6 +228,22 @@ collections.genes.mongoCollection().then(function(collection) {
                 }
 
               }).on('close', function() {
+                // output unique IDs
+                for (var uid in uniqueId) {
+                  console.log(',');
+                  console.log(JSON.stringify({
+                    category : 'Gene',
+                    subcategory : 'id',
+                    fq_field : 'id',
+                    fq_value : originalCase[uid],
+                    id       : originalCase[uid],
+                    display_name : originalCase[uid],
+                    num_genes : 1,
+                    relevance : 1.2,
+                    taxon_id : uniqueId[uid],
+                    taxon_freq : [1]
+                  }));
+                }
                 console.log(']');
               });
             });
