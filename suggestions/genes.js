@@ -121,26 +121,33 @@ collections.genes.mongoCollection().then(function(collection) {
           }
       
           // gene tree suggestion
-          var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=gene_tree';
+          // var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=gene_tree';
+          var url = genesURL
+          + '/query?rows=0&facet=true&facet.limit=-1&facet.mincount=1&json.nl=map'
+          + '&facet.pivot=gene_tree,taxon_id';
           console.error(url);
           http.read(url).then(function(data) {
-            var tree_size = JSON.parse(data).facet_counts.facet_fields.gene_tree;
-            for (var tree in tree_size) {
+            JSON.parse(data).facet_counts.facet_pivot['gene_tree,taxon_id'].forEach(function(d) {
+              var taxa = {ids:[],counts:[]};
+              d.pivot.forEach(function(p) {
+                taxa.ids.push(p.value);
+                taxa.counts.push(p.count);
+              });
               var solr = {
                 category    : 'Gene tree',
                 id          : '_term_'+ ++n,
-                taxon_id    : [1, treeRootNodeTaxonId[tree]],
-                taxon_freq  : [tree_size[tree],tree_size[tree]],
-                display_name: tree,
-                name        : tree,
+                taxon_id    : taxa.ids,
+                taxon_freq  : taxa.counts,
+                display_name: d.value,
+                name        : d.value,
                 fq_field    : 'gene_tree',
-                fq_value    : tree,
-                num_genes   : tree_size[tree],
+                fq_value    : d.value,
+                num_genes   : d.count,
                 relevance   : 1
-              };
+              }
               console.log(',');
               console.log(JSON.stringify(solr));
-            }
+            });
 
             // biotype suggestion
             var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=biotype';
