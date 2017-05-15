@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!-- Note the schema version attribute is for Solr -->
+
+<schema name="transplant v0.2-pre" version="1.5">
+  
+  <!-- Define the fields... -->
+  
+  <!-- Fields are based on the transPLANT integrated search schema
+       v0.2-pre document -->
+  
+  <!-- NOTE: I haven't used docValues (available in Solr since 4.2)
+       for the fields that we'll be faceting on, althought this could
+       provide a performace advantage in the most recent versions of
+       Solr. -->
+  
+  <!-- NOTE: (Almost) all fields are copied into the main description
+       field so that free text searches for their values will return
+       meaningfull results, regardless of their use as facets. -->
+  
+  <fields>
+    
+    <!-- We start with a couple of 'internal' fields. -->
+    
+    <!-- This field is required internally for Solr to work -->
+    <field name="_version_"     type="long"   indexed="true"  stored="true"/>
+    
+    <!-- Lets add a "timestamp" field indicating when each document
+         was indexed, just for internal bookkeeping. -->
+    <field name="timestamp"     type="date"   indexed="true"  stored="true"  default="NOW"/>
+    
+    <!-- Core type: Database entry -->
+    
+    <!-- We need to store this field because it's used internally by
+         Drupal Apache Solr to identify documents in the results
+         set. See below for how it's populated. -->
+    <field name="id"            type="string" indexed="true"  stored="true"  required="false"/>
+
+    <field name="sg_id"         type="string" indexed="true"  stored="true"  required="false" default="0"/>
+    
+    <!-- Although the entry_type is specified in the schema document
+         as a field of type 'enum', there is no technical need to
+         implement it as such in Solr. -->
+    <field name="entry_type"  type="string"    indexed="true"  stored="true" required="true"/>
+    
+    <!-- Together these three fields define the unique identifier for
+         a given entry, being hashed together using Lookup3Signature
+         into the 'id' field. See the 'dedupe' update request
+         processor in solrconfig.xml. -->
+    <field name="database_name" type="string" indexed="true"  stored="true" required="true"/>
+    <field name="db_id"         type="string" indexed="false" stored="true"  required="true"/>
+    <field name="db_version"    type="string"    indexed="false" stored="true"  required="false"/>
+    
+    <!-- This is the most important field from the free text search
+         point of view. The field is stored for retreival (and as a
+         requirement for highlighting, and is defined as multiValued
+         because several other fields are copied here to allow both
+         faceting and free text search. We could add termVectors and
+         termPositions for highlighting! -->
+    <field name="description"   type="t_gen"  indexed="true"  stored="true"  required="true"  multiValued="true"/>
+    <!-- <field name="description"   type="string"  indexed="true"  stored="true"  required="true"  multiValued="true"/> -->
+    
+    <!-- We don't need to index this (see below) -->
+    <field name="url"           type="string" indexed="false" stored="true"  required="true"/>
+    
+    <!-- Fields used for faceting need to be indexed! -->
+    <field name="species"       type="string" indexed="true"  stored="true" required="false" multiValued="true"/>
+    
+    <!-- Other text fields are also copied to description, but I think
+         need to be independently defined? -->
+    <!-- <field name="sample"        type="t_gen"  indexed="false" stored="false" required="false"/> -->
+    
+    <!-- Allow multiple, generic links back to other documents. -->
+    <field name="xref"          type="string" indexed="true"  stored="true"  required="false" multiValued="true"/>
+    
+    <!-- Now we define the fields that are used by the other data
+         types that we want to index... -->
+    
+    <!-- Sequence feature -->
+    
+    <!-- The conceptual schema has the 'feature_type' field as
+         mandatory if the entry_type is 'sequence feature'. However,
+         not all documents are sequence features, so we cant simply
+         flag this field as 'required' by Solr. The requirement can be
+         enforced elsewhere if needed. -->
+    
+    <!-- Another (ontology based) hierarchical facet field to think
+         about... -->
+    <field name="feature_type"     type="string" indexed="true"  stored="true" required="false"/>
+    <field name="sequence_id"      type="string" indexed="false" stored="true"  required="false"/>
+    <field name="sequence_version" type="int"    indexed="false" stored="true"  required="false"/>
+    <field name="start_position"   type="tint"   indexed="true"  stored="true"  required="false"/>
+    <field name="end_position"     type="tint"   indexed="true"  stored="true"  required="false"/>
+    
+    
+    
+    <!-- Genetic marker -->
+    
+    <!-- Other text fields are also copied to description, but I think
+         need to be independently defined? -->
+    <!-- <field name="map"              type="string"  indexed="false" stored="false" required="false"/> -->
+    <field name="map"              type="t_gen"  indexed="false" stored="true" required="false"/>
+    <field name="map_position"     type="tfloat" indexed="true"  stored="true" required="false"/>
+    
+    <!-- Accession -->
+    
+    <!-- Other text fields are also copied to description, but I think
+         need to be independently defined? -->
+    <!-- <field name="authority"        type="string"  indexed="false" stored="false" required="false"/> -->
+    <field name="authority"        type="t_gen"  indexed="false" stored="true" required="false"/>
+    
+    <!-- Phenotype -->
+    
+    <!-- <field name="trait"            type="string"  indexed="false"  stored="false" required="false" /> -->
+    <field name="trait"            type="t_gen"  indexed="false"  stored="true" required="false" />
+    <field name="trait_id"         type="string" indexed="true"   stored="false" required="false" />
+    <!-- <field name="environment"      type="string"  indexed="false"  stored="false" required="false" /> -->
+    <field name="environment"      type="t_gen"  indexed="false"  stored="true" required="false" />
+    <field name="environment_id"   type="string" indexed="true"   stored="false" required="false" />
+    
+    <field name="statistic"        type="string" indexed="false"  stored="true"  required="false"/>
+    <field name="unit"             type="string" indexed="false"  stored="true"  required="false"/>
+    
+    <!-- GWAS result -->
+    <field name="genotype"         type="string" indexed="true"   stored="true" required="false"/>
+    
+    <!-- QTL -->
+    
+    <!-- Experiment -->
+    <field name="experiment_type"  type="string" indexed="true"  stored="true" required="false"/>
+    
+    <!-- Reaction -->
+    
+    <!-- Other -->
+    
+  </fields>
+  
+  <!-- Field to use to determine and enforce document
+       uniqueness. Unless this field is marked with required="false",
+       it will be a required field. -->
+  <uniqueKey>id</uniqueKey>
+
+  <!-- Field for the QueryParser to use when an explicit fieldname is
+       absent. Specifying this here simplifes config elsewhere. -->
+  <defaultSearchField>description</defaultSearchField>
+
+  <!-- SolrQueryParser configuration: defaultOperator="AND|OR" -->
+  <solrQueryParser defaultOperator="AND"/>
+  
+  <!-- Copy (almost) everything into the description field for
+       free-text searches -->
+  <copyField source="entry_type"      dest="description"/>
+  <copyField source="database_name"   dest="description"/>
+  <copyField source="db_id"           dest="description"/>
+  <copyField source="species"         dest="description"/>
+  <!-- <copyField source="sample"          dest="description"/> -->
+  <copyField source="feature_type"    dest="description"/>
+  <copyField source="sequence_id"     dest="description"/>
+  <copyField source="map"             dest="description"/>
+  <copyField source="authority"       dest="description"/>
+  <copyField source="trait"           dest="description"/>
+  <copyField source="trait_id"        dest="description"/>
+  <copyField source="environment"     dest="description"/>
+  <copyField source="environment_id"  dest="description"/>
+  <copyField source="statistic"       dest="description"/>
+  <copyField source="unit"            dest="description"/>
+  <copyField source="genotype"        dest="description"/>
+  <copyField source="experiment_type" dest="description"/>
+
+  <!-- Field types... -->
+  
+  <types>
+    <!-- The StrField type is not analyzed, but indexed/stored
+         verbatim. It supports docValues but in that case the field
+         needs to be single-valued and either required or have a
+         default value. -->
+    <fieldType name="string" class="solr.StrField" sortMissingLast="true"/>
+    
+    <!-- Default numeric field types. For faster range queries,
+         consider the tint/tfloat/tlong/tdouble types. -->
+    <fieldType name="int"    class="solr.TrieIntField"   precisionStep="0" positionIncrementGap="0"/>
+    <fieldType name="long"   class="solr.TrieLongField"  precisionStep="0" positionIncrementGap="0"/>
+    <fieldType name="float"  class="solr.TrieFloatField" precisionStep="0" positionIncrementGap="0"/>
+    
+    <!-- Numeric field types that index each value at various levels
+         of precision to accelerate range queries when the number of
+         values between the range endpoints is large.
+         
+         Smaller precisionStep values (specified in bits) will lead to
+         more tokens indexed per value, slightly larger index size,
+         and faster range queries. A precisionStep of 0 disables
+         indexing at different precision levels. -->
+    <fieldType name="tint"   class="solr.TrieIntField"   precisionStep="8" positionIncrementGap="0"/>
+    <fieldType name="tfloat" class="solr.TrieFloatField" precisionStep="8" positionIncrementGap="0"/>
+    
+    <!-- The format for this date field is of the form
+         '1995-12-31T23:59:59Z'. For faster range queries, consider
+         the tdate type. -->
+    <fieldType name="date"   class="solr.TrieDateField"  precisionStep="0" positionIncrementGap="0"/>
+    
+    <!-- A Trie based date field for faster date range queries and
+         date faceting. -->
+    <fieldType name="tdate"  class="solr.TrieDateField"  precisionStep="6" positionIncrementGap="0"/>
+    
+    <!-- Fields for text I'm not convinced that we need anything
+         particularly fancy here ... -->
+    
+    <!-- A text field that only splits on whitespace for exact matching
+         of words -->
+    <fieldType name="text_ws" class="solr.TextField" positionIncrementGap="100">
+      <analyzer>
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+      </analyzer>
+    </fieldType>
+    
+    <!-- A general text field that has reasonable, generic
+         cross-language defaults: it tokenizes with StandardTokenizer,
+         removes stop words from case-insensitive "stopwords.txt", and
+         down cases. Synonyms are applied at query time. -->
+    <fieldType name="t_gen" class="solr.TextField" positionIncrementGap="100">
+      <analyzer type="index">
+        <tokenizer class="solr.StandardTokenizerFactory"/>
+        <filter class="solr.StopFilterFactory" ignoreCase="true" words="stopwords.txt"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+      </analyzer>
+      <analyzer type="query">
+        <tokenizer class="solr.StandardTokenizerFactory"/>
+        <filter class="solr.StopFilterFactory" ignoreCase="true" words="stopwords.txt"/>
+        <filter class="solr.SynonymFilterFactory" ignoreCase="true" synonyms="synonyms.txt" expand="true"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+      </analyzer>
+    </fieldType>
+    
+    <!-- A text field with defaults appropriate for English: it
+         tokenizes with StandardTokenizer, removes English stop words
+         (lang/stopwords_en.txt), down cases, protects words from
+         protwords.txt, and finally applies Porter's stemming. Synonyms
+         are applied at query time. -->
+    <fieldType name="text_en" class="solr.TextField" positionIncrementGap="100">
+      <analyzer type="index">
+        <tokenizer class="solr.StandardTokenizerFactory"/>
+        <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_en.txt"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.EnglishPossessiveFilterFactory"/>
+        <filter class="solr.KeywordMarkerFilterFactory" protected="protwords.txt"/>
+        <filter class="solr.PorterStemFilterFactory"/>
+      </analyzer>
+      <analyzer type="query">
+        <tokenizer class="solr.StandardTokenizerFactory"/>
+        <filter class="solr.StopFilterFactory" ignoreCase="true" words="lang/stopwords_en.txt"/>
+        <filter class="solr.SynonymFilterFactory" synonyms="synonyms.txt" ignoreCase="true" expand="true"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.EnglishPossessiveFilterFactory"/>
+        <filter class="solr.KeywordMarkerFilterFactory" protected="protwords.txt"/>
+        <filter class="solr.PorterStemFilterFactory"/>
+      </analyzer>
+    </fieldType>
+    
+  </types>
+
+</schema>
