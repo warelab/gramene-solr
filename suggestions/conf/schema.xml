@@ -148,7 +148,7 @@
 	 <field name="comment" type="text_general" indexed="true" stored="false" required="false" multiValued="false" />
 	 
 	 <field name="text" type="subword" indexed="true" stored="false" multiValued="true"/>
-	 <copyField source="id" dest="text"/>
+	 <!-- <copyField source="id" dest="text"/> -->
 	 <copyField source="name" dest="text"/>
 	 <copyField source="synonym" dest="text"/>
 	 <copyField source="description" dest="text"/>
@@ -443,8 +443,7 @@
 				splitOnNumerics="0"
                 generateWordParts="1"
                 generateNumberParts="1"
-                catenateWords="0"
-                catenateNumbers="0"
+				splitOnCaseChange="0"
                 catenateAll="1"
                 preserveOriginal="1"
                 />
@@ -460,8 +459,7 @@
 				splitOnNumerics="1"
                 generateWordParts="1"
                 generateNumberParts="1"
-                catenateWords="0"
-                catenateNumbers="0"
+				splitOnCaseChange="0"
                 catenateAll="1"
                 preserveOriginal="1"
                 />
