@@ -892,7 +892,7 @@
 			 <str name="mm">100%</str>
        <str name="q.alt">*:*</str>
        <str name="rows">20</str>
-       <str name="fl">id,name,synonyms,description,summary,taxon_id,biotype,capabilities,
+       <str name="fl">id,name,synonyms,description,summary,system_name,taxon_id,biotype,capabilities,
 		   closest_rep_id,closest_rep_taxon_id,closest_rep_name,closest_rep_description,
 		   model_rep_id,model_rep_taxon_id,model_rep_name,model_rep_description,
 		   score</str>
