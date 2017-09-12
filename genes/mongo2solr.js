@@ -16,7 +16,7 @@ function get_rep(c) {
   return rep;
 }
 
-collections.atlas.mongoCollection().then(function(atlas) {
+collections.expression.mongoCollection().then(function(atlas) {
   atlas.find().toArray(function(err,docs) {
     var expressionData = _.keyBy(docs, '_id');
     collections.genes.mongoCollection().then(function(collection) {
