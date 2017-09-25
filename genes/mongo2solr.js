@@ -136,6 +136,9 @@ collections.expression.mongoCollection().then(function(atlas) {
             if (mongo.homology.gene_tree) {
               solr.gene_tree_root_taxon_id = mongo.homology.gene_tree.root_taxon_id;
               solr.gene_tree = mongo.homology.gene_tree.id;
+              if (mongo.homology.gene_tree.duplications) {
+                solr.gene_tree_duplications = mongo.homology.gene_tree.duplications;
+              }
               if (mongo.homology.gene_tree.representative) {
                 var mhgr = mongo.homology.gene_tree.representative;
                 if (mhgr.closest) {

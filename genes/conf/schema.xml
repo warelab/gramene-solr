@@ -89,6 +89,7 @@
    <field name="gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
    <field name="pan_tree" type="string" indexed="true" stored="true" multiValued="false"/>
    <field name="gene_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
+   <field name="gene_tree_duplications" type="int" indexed="true" stored="true" multiValued="true"  docValues="true"/>
    <field name="pan_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
 
    <!-- interpro domain architecture field -->
