@@ -1,76 +1,153 @@
 #!/usr/bin/env node
 var http = require("q-io/http")
+  , request = require("sync-request")
   , collections = require('gramene-mongodb-config');
 
 var genesURL = process.argv[2];
 
+function getTaxa(query) {
+  var url = genesURL + '/query?q='+query+'&rows=0&facet=true&facet.field=taxon_id&facet.limit=-1&facet.mincount=1&json.nl=map';
+  var res = request('GET',url);
+  var taxa = { ids:[], counts:[]};
+  var taxTally = JSON.parse(res.getBody()).facet_counts.facet_fields.taxon_id;
+  for (var t in taxTally) {
+    taxa.ids.push(+t);
+    taxa.counts.push(taxTally[t]);
+  }
+  return taxa;
+}
+
 // read all of the unique ids from the genes collection
 // to avoid suggesting them as non-unique terms when they are mentioned as an xref or something in another gene
 collections.genes.mongoCollection().then(function(collection) {
-  collection.find({},{_id:1}).toArray(function(err,docs) {
+  collection.find({},{_id:1, taxon_id:1, db_type:1}).toArray(function(err,docs) {
     if (err) throw err;
     var uniqueId = {};
+    var otherfeaturesId = {};
+    var uniqueTaxa = {};
+    var originalCase = {};
     docs.forEach(function(d) {
-      uniqueId[d._id.toUpperCase()] = 1;
+      if (d.db_type != 'core') {
+        otherfeaturesId[d._id.toUpperCase()] = d.taxon_id;
+      }
+      uniqueTaxa[d.taxon_id] = 1;
+      uniqueId[d._id.toUpperCase()] = d.taxon_id;
+      originalCase[d._id.toUpperCase()] = d._id;
     });
 
     collections.genetrees.mongoCollection().then(function(collection) {
-      collection.find({},{_id:1,node_taxon_id:1}).toArray(function(err,docs) {
+      collection.find({},{_id:1,taxon_id:1}).toArray(function(err,docs) {
         if (err) throw err;
         collections.closeMongoDatabase();
         var treeRootNodeTaxonId = {};
         docs.forEach(function(d) {
-          treeRootNodeTaxonId[d._id] = d.node_taxon_id;
+          treeRootNodeTaxonId[d._id] = d.taxon_id;
         });
 
         // non-unique terms get their own doc with a relevant fq field
         // build a lookup table with the non-unique ids from these
-        var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=2&facet.field=_terms';
+        var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.pivot.mincount=2&facet.pivot=_terms,taxon_id';
         console.error(url);
         http.read(url).then(function(data) {
-          var term_freq = JSON.parse(data).facet_counts.facet_fields._terms;
+          var term_freq = {};
+          var taxa_lut = {};
+          JSON.parse(data).facet_counts.facet_pivot['_terms,taxon_id'].forEach(function(d) {
+            var term = d.value; // .toUpperCase(); // don't do this it leads to problems
+            if (!uniqueId.hasOwnProperty(term)) {
+              if (term_freq.hasOwnProperty(term)) {
+                term_freq[term] += d.count;
+              }
+              else {
+                term_freq[term] = d.count;
+                taxa_lut[term] = {}; // term may appear only once in some species, but we don't know which ones yet
+              }
+              
+              if (d.pivot) { // term appears at least 2 times in some species
+                d.pivot.forEach(function(p) {
+                  if (taxa_lut[term].hasOwnProperty(p.value)) {
+                    taxa_lut[term][p.value] += p.count;
+                  }
+                  else {
+                    taxa_lut[term][p.value] = p.count;
+                  }
+                });
+              }
+            }
+          });
+          // find all the terms in each species
+          Object.keys(uniqueTaxa).forEach(function(taxon_id) {
+            var url = genesURL + '/query?rows=0&facet=true&facet.field=_terms&facet.limit=-1&json.nl=map&facet.mincount=1&q=taxon_id:'+taxon_id;
+            console.error(url);
+            var res = request('GET',url);
+            var term_tally = JSON.parse(res.getBody()).facet_counts.facet_fields._terms;
+            for (var t in term_tally) {
+              var term = t; // .toUpperCase(); // don't do this it leads to problems
+              if (term_freq.hasOwnProperty(term)) {
+                if (taxa_lut[term].hasOwnProperty(taxon_id)) {
+                  taxa_lut[term][taxon_id] += term_tally[t];
+                }
+                else {
+                  taxa_lut[term][taxon_id] = term_tally[t];
+                }
+              }
+            }
+          });
+          
+          console.error("finished building taxa_lut");
           var n=0;
           for (var term in term_freq) {
-            var ucTerm = term.toUpperCase();
-            term_freq[ucTerm] = term_freq[term];
-            if (!uniqueId.hasOwnProperty(ucTerm)) {
-              var tf = term_freq[ucTerm];
-              var solr = {
-                category    : 'Gene',
-                id          : '_term_'+ ++n,
-                display_name: term,
-                name        : term,
-                fq_field    : '_terms',
-                fq_value    : term,
-                num_genes   : tf,
-                relevance   : tf < 10 ? 1.1 : 1
-              };
-              if (n===1) console.log('[');
-              else console.log(',');
-              console.log(JSON.stringify(solr));
+            var tf = term_freq[term];
+            var taxa = {ids:[],counts:[]};
+            for(var taxon_id in taxa_lut[term]) {
+              taxa.ids.push(+taxon_id);
+              taxa.counts.push(taxa_lut[term][taxon_id]);
             }
+            var solr = {
+              category    : 'Gene',
+              subcategory : 'term',
+              id          : '_term_'+ ++n,
+              display_name: term,
+              name        : term,
+              fq_field    : '_terms',
+              fq_value    : term,
+              taxon_id    : taxa.ids,
+              taxon_freq  : taxa.counts,
+              num_genes   : tf,
+              relevance   : tf < 10 ? 1.1 : 1
+            };
+            if (n===1) console.log('[');
+            else console.log(',');
+            console.log(JSON.stringify(solr));
           }
       
           // gene tree suggestion
-          var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=grm_gene_tree';
+          // var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=gene_tree';
+          var url = genesURL
+          + '/query?rows=0&facet=true&facet.limit=-1&facet.mincount=1&json.nl=map'
+          + '&facet.pivot=gene_tree,taxon_id';
           console.error(url);
           http.read(url).then(function(data) {
-            var tree_size = JSON.parse(data).facet_counts.facet_fields.grm_gene_tree;
-            for (var tree in tree_size) {
+            JSON.parse(data).facet_counts.facet_pivot['gene_tree,taxon_id'].forEach(function(d) {
+              var taxa = {ids:[],counts:[]};
+              d.pivot.forEach(function(p) {
+                taxa.ids.push(p.value);
+                taxa.counts.push(p.count);
+              });
               var solr = {
                 category    : 'Gene tree',
                 id          : '_term_'+ ++n,
-                taxon_id    : treeRootNodeTaxonId[tree],
-                display_name: tree,
-                name        : tree,
-                fq_field    : 'grm_gene_tree',
-                fq_value    : tree,
-                num_genes   : tree_size[tree],
+                taxon_id    : taxa.ids,
+                taxon_freq  : taxa.counts,
+                display_name: d.value,
+                name        : d.value,
+                fq_field    : 'gene_tree',
+                fq_value    : d.value,
+                num_genes   : d.count,
                 relevance   : 1
-              };
+              }
               console.log(',');
               console.log(JSON.stringify(solr));
-            }
+            });
 
             // biotype suggestion
             var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=biotype';
@@ -78,6 +155,7 @@ collections.genes.mongoCollection().then(function(collection) {
             http.read(url).then(function(data) {
               var biotype_count = JSON.parse(data).facet_counts.facet_fields.biotype;
               for (var biotype in biotype_count) {
+                var taxa = getTaxa('biotype:'+biotype);
                 var solr = {
                   category    : 'Biotype',
                   id          : '_term_'+ ++n,
@@ -85,6 +163,8 @@ collections.genes.mongoCollection().then(function(collection) {
                   name        : biotype,
                   fq_field    : 'biotype',
                   fq_value    : biotype,
+                  taxon_id    : taxa.ids,
+                  taxon_freq  : taxa.counts,
                   num_genes   : biotype_count[biotype],
                   relevance   : 1
                 };
@@ -101,52 +181,46 @@ collections.genes.mongoCollection().then(function(collection) {
               ).on('line', function(line) { // one JSON object per line
                 var mongo = JSON.parse(line);
 
-                console.log(',');
-                console.log(JSON.stringify({
-                  category : 'Gene',
-                  fq_field : 'id',
-                  fq_value : mongo._id,
-                  id       : mongo._id,
-                  display_name : mongo._id,
-                  num_genes : 1,
-                  relevance : 1.2,
-                  taxon_id : mongo.taxon_id
-                }));
-
                 // add uniquely identifying xrefs
-                var xref_h = {};
-                for (var db in mongo.xrefs) {
-                  if (!collections.hasOwnProperty(db)) {
-                    mongo.xrefs[db].forEach(function(xr) {
-                      xref_h[xr]=db;
+                if (mongo.xrefs) {
+                  var xref_h = {};
+                  mongo.xrefs.forEach(function(xref) {
+                    xref.ids.forEach(function(id) {
+                      xref_h[id]=xref.db;
                     });
-                  }
+                  });
+                  Object.keys(xref_h).filter(function(xr) {
+                    return !term_freq[xr];
+                  }).forEach(function(xr) {
+                    console.log(',');
+                    console.log(JSON.stringify({
+                      category : 'Gene',
+                      subcategory : 'xref',
+                      fq_field : 'id',
+                      fq_value : mongo._id,
+                      id       : '_term_'+ ++n,
+                      xref     : xr,
+                      display_name : xr,
+                      num_genes : 1,
+                      relevance : 1.2,
+                      taxon_id : [mongo.taxon_id],
+                      taxon_freq : [1]
+                    }));
+                  });
                 }
-                Object.keys(xref_h).filter(function(xr) {
-                  return !term_freq[xr.toUpperCase()];
-                }).forEach(function(xr) {
-                  console.log(',');
-                  console.log(JSON.stringify({
-                    category : 'Gene',
-                    fq_field : 'id',
-                    fq_value : mongo._id,
-                    id       : '_term_'+ ++n,
-                    xref     : xr,
-                    display_name : xr,
-                    num_genes : 1,
-                    relevance : 1.2,
-                    taxon_id : mongo.taxon_id
-                  }));
-                });
 
                 // add uniquely identifying synonyms
                 if (mongo.hasOwnProperty('synonyms')) {
                   mongo.synonyms.filter(function(syn) {
-                    return !term_freq[syn.toUpperCase()];
+                    return !term_freq[syn];
                   }).forEach(function(syn) {
+                    if (otherfeaturesId[syn]) {
+                      delete uniqueId[syn];
+                    }
                     console.log(',');
                     console.log(JSON.stringify({
                       category : 'Gene',
+                      subcategory : 'synonym',
                       fq_field : 'id',
                       fq_value : mongo._id,
                       id       : '_term_'+ ++n,
@@ -154,12 +228,29 @@ collections.genes.mongoCollection().then(function(collection) {
                       display_name : syn,
                       num_genes : 1,
                       relevance : 1.1,
-                      taxon_id : mongo.taxon_id
+                      taxon_id : [mongo.taxon_id],
+                      taxon_freq : [1]
                     }));
                   });
                 }
 
               }).on('close', function() {
+                // output unique IDs
+                for (var uid in uniqueId) {
+                  console.log(',');
+                  console.log(JSON.stringify({
+                    category : 'Gene',
+                    subcategory : 'id',
+                    fq_field : 'id',
+                    fq_value : originalCase[uid],
+                    id       : originalCase[uid],
+                    display_name : originalCase[uid],
+                    num_genes : 1,
+                    relevance : 1.2,
+                    taxon_id : uniqueId[uid],
+                    taxon_freq : [1]
+                  }));
+                }
                 console.log(']');
               });
             });

@@ -51,10 +51,12 @@
 	 <!-- basic info for display -->
 	 <field name="external_query" type="string" indexed="true" stored="true" multiValued="true"/>
 	 
-   <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" docValues="true"/> 
+   <field name="id" type="text_lc" indexed="true" stored="true" required="true" multiValued="false"/> 
    <field name="name" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="description" type="text_general" indexed="true" stored="true" multiValued="false" required="true"/>
-	 <field name="synonyms" type="text_general" indexed="true" stored="true" multiValued="true"/>
+   <field name="annotations" type="text_general" indexed="true" stored="true" multiValued="true" required="false"/>
+   <field name="summary" type="text_general" indexed="true" stored="true" multiValued="false" required="false"/>
+   <field name="synonyms" type="text_general" indexed="true" stored="true" multiValued="true"/>
    <field name="taxon_id" type="int" indexed="true" stored="true" multiValued="false" required="true"/>
    <field name="biotype" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
    <field name="system_name" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
@@ -68,7 +70,10 @@
    <field name="start"  type="int" indexed="true" stored="true" docValues="true"/>
    <field name="end"    type="int" indexed="true" stored="true" docValues="true"/>
  	 <field name="strand" type="int" indexed="true" stored="true" docValues="true"/>
-	 <field name="gene_idx" type="int" indexed="true" stored="true" docValues="true"/>
+	 <field name="gene_idx" type="int" indexed="true" stored="true" multiValued="false"/>
+	 <field name="compara_idx" type="int" indexed="true" stored="true" multiValued="false"/>
+	 <field name="gene_idx_multi" type="int" indexed="true" stored="true" multiValued="true"/>
+	 <field name="compara_idx_multi" type="int" indexed="true" stored="true" multiValued="true"/>
 
 	 <!-- representative homolog -->
    <field name="closest_rep_id" type="string" indexed="false" stored="true" /> 
@@ -80,11 +85,11 @@
    <field name="model_rep_name" type="string" indexed="false" stored="true" /> 
    <field name="model_rep_description" type="string" indexed="false" stored="true" /> 
 
-	 <!-- additional fields for query/faceting -->
-   <field name="grm_gene_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
-   <field name="epl_gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
-   <field name="grm_gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
-   <field name="epl_sibling_trees" type="string" indexed="true" stored="true" multiValued="true"/>
+	<!-- additional fields for query/faceting -->
+   <field name="gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
+   <field name="pan_tree" type="string" indexed="true" stored="true" multiValued="false"/>
+   <field name="gene_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
+   <field name="pan_tree_root_taxon_id" type="int" indexed="true" stored="true" multiValued="false"/>
 
    <!-- interpro domain architecture field -->
    <field name="domain_roots" type="text_ws" indexed="true" stored="true" multiValued="false"/>
@@ -92,24 +97,33 @@
    <dynamicField name="*__xrefs"     type="string" indexed="true" stored="true" multiValued="true"/>
    <dynamicField name="*__ancestors" type="int"    indexed="true" stored="true" multiValued="true"  docValues="true"/>
    <dynamicField name="*__bin"       type="int"    indexed="true" stored="true" multiValued="false" docValues="true"/>
+   <dynamicField name="*__expr"       type="float"    indexed="true" stored="true" multiValued="false"/>
 	 <dynamicField name="transcript__*" type="int"   indexed="true" stored="true" multiValued="false" docValues="true"/>
    <dynamicField name="protein__*"   type="float"  indexed="true" stored="true" multiValued="true"/>
 	 <dynamicField name="homology__*"  type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
+	 <dynamicField name="neighbors_*" type="int" indexed="true" stored="true" multiValued="true"/>
+	 <dynamicField name="compara_neighbors_*" type="int" indexed="true" stored="true" multiValued="true"/>
 
+
+	 <field name="dna" type="dna" indexed="true" stored="true" multiValued="false"/>
+	 
 	 <!-- catchall field for text queries (see solrconfig query requestHandler for boosting ) -->
-	 <field name="text" type="text_general" indexed="true" stored="false" multiValued="true"/>
-	 <copyField source="id" dest="text"/>
+	 <field name="text" type="subword" indexed="true" stored="false" multiValued="true"/>
+	 <!-- <copyField source="id" dest="text"/> -->
 	 <copyField source="name" dest="text"/>
 	 <copyField source="synonyms" dest="text"/>
 	 <copyField source="description" dest="text"/>
 	 <copyField source="*__xrefs" dest="text"/>
+	 <copyField source="annotations" dest="text"/>
+	 <copyField source="gene_idx" dest="gene_idx_multi"/>
+	 <copyField source="compara_idx" dest="compara_idx_multi"/>
 
 	 <!-- string versions of text fields for faceting - to build the genes suggestions -->
 	 <field name="_terms" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
-	 <copyField source="id" dest="_terms"/>
+	 <!-- <copyField source="id" dest="_terms"/>
 	 <copyField source="name" dest="_terms"/>
 	 <copyField source="synonyms" dest="_terms"/>
-	 <copyField source="*__xrefs" dest="_terms"/>
+	 <copyField source="*__xrefs" dest="_terms"/> -->
 	 
 
  <!-- Field to use to determine and enforce document uniqueness. 
@@ -257,6 +271,14 @@
       </analyzer>
     </fieldType>
 
+    <!-- A text text field for case insensitive exact word matching -->
+    <fieldType name="text_lc" class="solr.TextField">
+      <analyzer>
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+      </analyzer>
+    </fieldType>
+
     <!-- A text type for English text where stopwords and synonyms are managed using the REST API -->
     <fieldType name="managed_en" class="solr.TextField" positionIncrementGap="100">
       <analyzer>
@@ -369,6 +391,56 @@
         <filter class="solr.PorterStemFilterFactory"/>
       </analyzer>
     </fieldType>
+
+
+    <fieldtype name="subword" class="solr.TextField">
+      <analyzer type="query">
+          <tokenizer class="solr.PatternTokenizerFactory" pattern="[.,:/;\s]"/>
+          <filter class="solr.WordDelimiterFilterFactory"
+				splitOnNumerics="0"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="0"
+                catenateNumbers="0"
+                catenateAll="1"
+                preserveOriginal="1"
+                />
+          <filter class="solr.LowerCaseFilterFactory"/>
+		  <filter class="solr.LengthFilterFactory" min="2" max="100"/>
+          <filter class="solr.StopFilterFactory"/>
+          <filter class="solr.PorterStemFilterFactory"/>
+          <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+      <analyzer type="index">
+          <tokenizer class="solr.PatternTokenizerFactory" pattern="[.,:/;\s]"/>
+          <filter class="solr.WordDelimiterFilterFactory"
+				splitOnNumerics="1"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="0"
+                catenateNumbers="0"
+                catenateAll="1"
+                preserveOriginal="1"
+                />
+          <filter class="solr.LowerCaseFilterFactory"/>
+		  <filter class="solr.LengthFilterFactory" min="2" max="100"/>
+          <filter class="solr.StopFilterFactory"/>
+          <filter class="solr.PorterStemFilterFactory"/>
+          <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldtype>
+
+	<fieldtype name="dna" class="solr.TextField">
+		<analyzer type="query">
+			<tokenizer class="solr.NGramTokenizerFactory" minGramSize="8" maxGramSize="8"/>
+			<filter class="solr.LowerCaseFilterFactory"/>
+		</analyzer>
+		<analyzer type="index">
+			<tokenizer class="solr.NGramTokenizerFactory" minGramSize="8" maxGramSize="8"/>
+			<filter class="solr.LowerCaseFilterFactory"/>
+		</analyzer>
+	</fieldtype>
+		
 
     <!-- Less flexible matching, but less false matches.  Probably not ideal for product names,
          but may be good for SKUs.  Can insert dashes in the wrong place and still match. -->

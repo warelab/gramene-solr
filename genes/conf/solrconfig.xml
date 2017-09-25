@@ -883,15 +883,16 @@
      <lst name="defaults">
        <str name="echoParams">explicit</str>
        <str name="wt">json</str>
+	   <str name="sort">score desc,gene_idx asc</str>
        <str name="indent">true</str>
 			 <str name="defType">edismax</str>
 			 <str name="qf">
-				 name^2.0 synonyms^1.5 description^1.3 text^1.0 
+				 id^5.0 name^3.0 synonyms^2.0 text^1.5
 			 </str>
 			 <str name="mm">100%</str>
        <str name="q.alt">*:*</str>
        <str name="rows">20</str>
-       <str name="fl">id,name,description,taxon_id,biotype,capabilities,
+       <str name="fl">id,name,synonyms,description,summary,system_name,taxon_id,biotype,capabilities,
 		   closest_rep_id,closest_rep_taxon_id,closest_rep_name,closest_rep_description,
 		   model_rep_id,model_rep_taxon_id,model_rep_name,model_rep_description,
 		   score</str>
