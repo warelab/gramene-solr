@@ -94,8 +94,7 @@ var mongo2solr = {
   },
   domains: function(doc,genes,specificity) {
     var solr = {
-      category: 'InterPro',
-      subcategory: doc.type,
+      category: `InterPro ${doc.type}`,
       int_id: doc._id,
       id: doc.id,
       display_name: doc.name,
@@ -122,9 +121,9 @@ var mongo2solr = {
   },
   pathways: function(doc,genes,specificity) {
     var solr = {
-      category: 'Plant Reactome',
+      category: `Plant Reactome ${doc.type}`,
       int_id: doc._id,
-      id: doc.id,
+      id: 'R-OSA-'+doc._id,
       display_name: doc.name,
       name: doc.name,
       synonym: doc.synonyms,

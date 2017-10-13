@@ -13,7 +13,7 @@ create suggestions
 ```
 cd ../suggestions
 node aux.js http://brie:8984/solr/genes55
-mongoexport -h brie -d search55 -c genes | node --max-old-space-size=8192 ./genes.js http://brie:8984/solr/genes55 > genes.json
+node --max-old-space-size=8192 ./genes.js http://brie:8984/solr/genes55 > genes.json
 ```
 
 load into solr suggestions core
