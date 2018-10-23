@@ -66,7 +66,7 @@ var mongo2solr = {
     function getRank(doc) {
       if (doc.hasOwnProperty('property_value')) {
         var rank = doc.property_value.match(/has_rank NCBITaxon:(.*)/);
-        if (rank.length===2) {
+        if (rank && rank.length===2) {
           return rank[1];
         }
       }
