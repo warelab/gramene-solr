@@ -20,12 +20,13 @@ function getTaxa(query) {
 // read all of the unique ids from the genes collection
 // to avoid suggesting them as non-unique terms when they are mentioned as an xref or something in another gene
 collections.genes.mongoCollection().then(function(collection) {
-  collection.find({},{_id:1, taxon_id:1, db_type:1}).toArray(function(err,docs) {
+  collection.find({},{_id:1, taxon_id:1, db_type:1, synonyms:1}).toArray(function(err,docs) {
     if (err) throw err;
     var uniqueId = {};
     var otherfeaturesId = {};
     var uniqueTaxa = {};
     var originalCase = {};
+    var synOf = {};
     docs.forEach(function(d) {
       if (d.db_type != 'core') {
         otherfeaturesId[d._id.toUpperCase()] = d.taxon_id;
@@ -33,6 +34,13 @@ collections.genes.mongoCollection().then(function(collection) {
       uniqueTaxa[d.taxon_id] = 1;
       uniqueId[d._id.toUpperCase()] = d.taxon_id;
       originalCase[d._id.toUpperCase()] = d._id;
+      if (d.synonyms) {
+        d.synonyms.forEach(function(syn) {
+          uniqueId[syn.toUpperCase()] = d.taxon_id;
+          originalCase[syn.toUpperCase()] = syn;
+          synOf[syn.toUpperCase()] = d._id;
+        });
+      }
     });
 
     collections.genetrees.mongoCollection().then(function(collection) {
@@ -200,7 +208,7 @@ collections.genes.mongoCollection().then(function(collection) {
                   category : 'Gene',
                   subcategory : 'id',
                   fq_field : 'id',
-                  fq_value : originalCase[uid],
+                  fq_value : synOf[uid] || originalCase[uid],
                   id       : originalCase[uid],
                   display_name : originalCase[uid],
                   num_genes : 1,

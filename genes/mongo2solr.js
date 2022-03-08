@@ -18,9 +18,10 @@ function get_rep(c) {
 
 collections.expression.mongoCollection().then(function(atlas) {
   atlas.find().toArray(function(err,docs) {
+    console.error("got docs from atlas");
     var expressionData = _.keyBy(docs, '_id');
     collections.genes.mongoCollection().then(function(collection) {
-      var cursor = collection.find().sort([{'species_idx':1},{'db_type':1},{'gene_idx':1}]);
+      var cursor = collection.find({},{sort:{'species_idx':1,'db_type':1,'gene_idx':1}});
       var n=0;
       var p=0;
       var terminator = {}; // key is lowercase version, value is original term

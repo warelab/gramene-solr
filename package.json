@@ -20,15 +20,11 @@
   },
   "homepage": "https://github.com/warelab/gramene-solr",
   "dependencies": {
-    "body-parser": "^1.10.1",
-    "compression": "^1.5.1",
-    "cors": "^2.4.1",
-    "express": "^4.6.1",
-    "gramene-mongodb-config": "git://github.com/warelab/gramene-mongodb-config.git#release55",
-    "lodash": "^4.6.1",
-    "q": "^1.4.1",
-    "q-io": "^1.13.1",
-    "request": "^2.48.0",
-    "sync-request": "^3.0.1"
+    "gramene-mongodb-config": "git+ssh://git@github.com:warelab/gramene-mongodb-config.git#oryza_v4",
+    "lodash": "^4.17.21",
+    "mongodb": "^4.4.0",
+    "q": "^1.5.1",
+    "q-io": "^1.13.6",
+    "sync-request": "^6.1.0"
   }
 }
