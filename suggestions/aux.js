@@ -62,6 +62,26 @@ var mongo2solr = {
     });
     return solr;
   },
+  TO: function(doc,genes,specificity) {
+    var solr = {
+      category: 'Trait ontology',
+      int_id: doc._id,
+      id: doc.id,
+      display_name: doc.name,
+      name: doc.name,
+      def: doc.def,
+      fq_field: 'TO__ancestors',
+      fq_value: doc._id,
+      num_genes: genes,
+      relevance: 1.1 - 0.1/Math.sqrt(specificity) // prioritize less specific terms
+    };
+    optionalFields.forEach(function(f) {
+      if (doc.hasOwnProperty(f)) {
+        solr[f] = doc[f];
+      }
+    });
+    return solr;
+  },
   taxonomy: function(doc,genes,specificity) {
     function getRank(doc) {
       if (doc.hasOwnProperty('property_value')) {

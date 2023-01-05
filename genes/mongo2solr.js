@@ -216,18 +216,32 @@ collections.expression.mongoCollection().then(function(atlas) {
 
           // convert xrefs
           if (mongo.xrefs) {
+            let pubs=[];
+            let have_xrefs=false;
             mongo.xrefs.forEach(function(xref) {
-              solr[xref.db + '__xrefs'] = xref.ids;
-              xref.ids.forEach(function(id) {
-                if (_.isString(id)) {
-                  var lc = id.toLowerCase();
-                  if (!uniq.hasOwnProperty(lc)) {
-                    uniq[lc]=id;
+              if (xref.db === 'PUBMED') {
+                pubs.push(xref.ids[0])
+              }
+              else if (!mongo.annotations.hasOwnProperty(xref.db)) {
+                solr[xref.db + '__xrefs'] = xref.ids;
+                have_xrefs=true;
+                xref.ids.forEach(function(id) {
+                  if (_.isString(id)) {
+                    var lc = id.toLowerCase();
+                    if (!uniq.hasOwnProperty(lc)) {
+                      uniq[lc]=id;
+                    }
                   }
-                }
-              })
+                })
+              }
             });
-            solr.capabilities.push('xrefs');
+            if (pubs.length > 0) {
+              solr.capabilities.push('pubs');
+              solr['PUBMED__xrefs'] = pubs;
+            }
+            if (have_xrefs) {
+              solr.capabilities.push('xrefs');
+            }
           }
           // get we don't want id in _terms
           delete uniq[lcId];
