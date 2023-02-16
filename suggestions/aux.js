@@ -12,9 +12,9 @@ var optionalFields = ['comment','xref','synonym'];
 var mongo2solr = {
   GO: function(doc,genes,specificity) {
     var categoryLabel = {
-      molecular_function : 'GO function',
-      biological_process : 'GO process',
-      cellular_component : 'GO component'
+      molecular_function : 'Gene Ontology: molecular function',
+      biological_process : 'Gene Ontology: biological process',
+      cellular_component : 'Gene Ontology: cellular component'
     };
     var solr = {
       category: categoryLabel[doc.namespace],
@@ -40,8 +40,8 @@ var mongo2solr = {
   },
   PO: function(doc,genes,specificity) {
     var categoryLabel = {
-      plant_anatomy : 'Plant anatomy',
-      plant_structure_development_stage: 'Plant structural/developmental stage'
+      plant_anatomy : 'Plant Ontology: anatomy',
+      plant_structure_development_stage: 'Plant Ontology: structural/developmental stage'
     };
     var solr = {
       category: categoryLabel[doc.namespace], // 'Plant ontology',
@@ -71,6 +71,26 @@ var mongo2solr = {
       name: doc.name,
       def: doc.def,
       fq_field: 'TO__ancestors',
+      fq_value: doc._id,
+      num_genes: genes,
+      relevance: 1.1 - 0.1/Math.sqrt(specificity) // prioritize less specific terms
+    };
+    optionalFields.forEach(function(f) {
+      if (doc.hasOwnProperty(f)) {
+        solr[f] = doc[f];
+      }
+    });
+    return solr;
+  },
+  QTL_TO: function(doc,genes,specificity) {
+    var solr = {
+      category: 'QTLs',
+      int_id: doc._id,
+      id: doc.id,
+      display_name: doc.name,
+      name: doc.name,
+      def: doc.def,
+      fq_field: 'QTL_TO__ancestors',
       fq_value: doc._id,
       num_genes: genes,
       relevance: 1.1 - 0.1/Math.sqrt(specificity) // prioritize less specific terms
@@ -114,7 +134,7 @@ var mongo2solr = {
   },
   domains: function(doc,genes,specificity) {
     var solr = {
-      category: `InterPro ${doc.type}`,
+      category: `InterPro: ${doc.type}`,
       int_id: doc._id,
       id: doc.id,
       display_name: doc.name,
@@ -141,7 +161,7 @@ var mongo2solr = {
   },
   pathways: function(doc,genes,specificity) {
     var solr = {
-      category: `Plant Reactome ${doc.type}`,
+      category: `Plant Reactome: ${doc.type}`,
       int_id: doc._id,
       id: 'R-OSA-'+doc._id,
       display_name: doc.name,
@@ -178,6 +198,55 @@ var promises = _.map(mongo2solr, function(f,key) {
         taxa[d.value].counts.push(p.count);
       });
     });
+    let fkey = key;
+    if (key === "QTL_TO") {
+      // generate suggestions from the qtls collection that do range queries
+      collections.qtls.mongoCollection().then(function(qtls_coll) {
+        qtls_coll.find().toArray(function(err, qtls) {
+          if (err) deferred.reject(err);
+          if (!qtls) {
+            console.error('qtls not found');
+            deferred.reject('qtls not found');
+          }
+          console.error('got '+qtls.length + ' qtls from mongo');
+          var solrDocs = qtls.map(function(qtl) {
+            const l = qtl.location;
+            let syns = [];
+            const id_ver = qtl._id.split('.');
+            if (id_ver.length === 2) {
+              syns.push(id_ver[0]);
+              const digits = /[0-9]+$/;
+              const pre_chr = id_ver[0].replace(digits,'');
+              if (pre_chr !== id_ver[0]) {
+                syns.push(pre_chr)
+              }
+            }
+            var solr = {
+              category: 'QTLs',//qtl.source.replaceAll('_',' '),
+              id: qtl._id,
+              display_name: qtl._id,
+              name: qtl.description,
+              synonym: syns,
+              fq_field: 'location',
+              fq_value: `(map:${l.map} AND region:${l.region} AND start:[${l.start} TO ${l.end}])`,
+              num_genes: 1,
+              relevance: 1.0,
+              taxon_id: [4558,39947],
+              taxon_freq: [1,1]
+            };
+            return solr
+          })
+          
+          fs.writeFile('qtls.json', JSON.stringify(solrDocs, null, '  '), function(err) {
+            if (err) deferred.reject(err);
+            console.error('qtls written to json');
+            // deferred.resolve(true);
+          })
+        })
+      })
+      // change the key to TO so we get QTL suggestions
+      key = "TO";
+    }
     // instead of reading from stdin, get the docs from mongodb
     collections[key].mongoCollection().then(function(collection) {
       collection.find().toArray(function(err,docs) {
@@ -210,7 +279,7 @@ var promises = _.map(mongo2solr, function(f,key) {
           return doc;
         });
         
-        fs.writeFile(key + '.json',JSON.stringify(solrDocs,null,'  '), function(err) {
+        fs.writeFile(fkey + '.json',JSON.stringify(solrDocs,null,'  '), function(err) {
           if (err) deferred.reject(err);
           console.error(key,'wrote to json file');
           deferred.resolve(true);

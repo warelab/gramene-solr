@@ -102,7 +102,7 @@ collections.genes.mongoCollection().then(function(collection) {
                 }
                 else if (/[A-Za-z]/.test(term)) { // this is a unique term that contains a word character
                   var solr = {
-                    category    : 'Gene',
+                    category    : 'Genes',
                     subcategory : 'term',
                     id          : '_term_'+ ++n,
                     display_name: term,
@@ -131,7 +131,7 @@ collections.genes.mongoCollection().then(function(collection) {
               taxa.counts.push(taxa_lut[term][taxon_id]);
             }
             var solr = {
-              category    : 'Gene',
+              category    : 'Genes',
               subcategory : 'term',
               id          : '_term_'+ ++n,
               display_name: term,
@@ -162,7 +162,7 @@ collections.genes.mongoCollection().then(function(collection) {
                 taxa.counts.push(p.count);
               });
               var solr = {
-                category    : 'Gene tree',
+                category    : 'Gene trees',
                 id          : '_term_'+ ++n,
                 taxon_id    : taxa.ids,
                 taxon_freq  : taxa.counts,
@@ -185,7 +185,7 @@ collections.genes.mongoCollection().then(function(collection) {
               for (var biotype in biotype_count) {
                 var taxa = getTaxa('biotype:'+biotype);
                 var solr = {
-                  category    : 'Biotype',
+                  category    : 'Biotypes',
                   id          : '_term_'+ ++n,
                   display_name: biotype,
                   name        : biotype,
@@ -205,7 +205,7 @@ collections.genes.mongoCollection().then(function(collection) {
               for (var uid in uniqueId) {
                 console.log(',');
                 console.log(JSON.stringify({
-                  category : 'Gene',
+                  category : 'Genes',
                   subcategory : 'id',
                   fq_field : 'id',
                   fq_value : synOf[uid] || originalCase[uid],
