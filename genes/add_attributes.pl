@@ -55,5 +55,4 @@ while (<>) {
         print $_;
     }
 }
-close $fh;
 
