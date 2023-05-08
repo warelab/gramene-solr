@@ -16,16 +16,17 @@ chomp $header;
 my ($id_col, @attrs) = split /\t/, $header;
 my %is_multi;
 for my $attr (@attrs) {
-    $attr =~ m/^\w+_attr_[sif]s?$/ or die "error parsing $attr\n";
+    $attr =~ m/^\w+_attr_[sif]s?$/ or $attr eq "capabilities" or die "error parsing $attr\n";
     $is_multi{$attr} = ($attr =~ m/_[sif]s$/);
 }
 while (<$fh>) {
-    chomp;
     my ($id, @etc) = split /\t/, $_;
-    scalar @etc == scalar @attrs or die "number of attributes differs in line\n$_\n";
+    scalar @etc == scalar @attrs or die "number of attributes (".scalar(@attrs).") differs in line (".scalar(@etc).")\n$_\n";
+    chomp $etc[-1];
     for (my $i=0; $i<@etc; $i++) {
         my $attr = $attrs[$i];
         my $value = $etc[$i];
+        next if ($value eq ''); 
         if ($is_multi{$attr}) {
             my @x = split /,/, $value;
             $value = \@x;
@@ -45,7 +46,14 @@ while (<>) {
         my $id = $doc->{"id"};
         if ($lut{$id}) {
             for my $attr (keys %{$lut{$id}}) {
-                $doc->{$attr} = $lut{$id}{$attr};
+                if (not exists $doc->{$attr}) {
+                    $doc->{$attr} = $lut{$id}{$attr};
+                }
+                else {
+                    if ($attr eq "capabilities") {
+                        push @{$doc->{$attr}}, $lut{$id}{$attr};
+                    }
+                }
             }
         }
         my $json = encode_json $doc;
