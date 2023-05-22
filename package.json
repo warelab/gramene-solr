@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/warelab/gramene-solr",
   "dependencies": {
-    "gramene-mongodb-config": "git+ssh://git@github.com:warelab/gramene-mongodb-config.git#oryza_v4",
+    "gramene-mongodb-config": "git+ssh://git@github.com:warelab/gramene-mongodb-config.git#sorghum_v6",
     "lodash": "^4.17.21",
     "mongodb": "^4.4.0",
     "q": "^1.5.1",

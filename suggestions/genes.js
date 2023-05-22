@@ -61,7 +61,7 @@ collections.genes.mongoCollection().then(function(collection) {
           var taxa_lut = {};
           JSON.parse(data).facet_counts.facet_pivot['_terms,taxon_id'].forEach(function(d) {
             var term = d.value; // .toUpperCase(); // don't do this it leads to problems
-            if (!uniqueId.hasOwnProperty(term)) {
+            if (!uniqueId.hasOwnProperty(term.toUpperCase())) {
               if (term_freq.hasOwnProperty(term)) {
                 term_freq[term] += d.count;
               }
@@ -91,7 +91,7 @@ collections.genes.mongoCollection().then(function(collection) {
             var term_tally = JSON.parse(res.getBody()).facet_counts.facet_fields._terms;
             for (var t in term_tally) {
               var term = t; // .toUpperCase(); // don't do this it leads to problems
-              if (!uniqueId.hasOwnProperty(term)) {
+              if (!uniqueId.hasOwnProperty(term.toUpperCase())) {
                 if (term_freq.hasOwnProperty(term)) {
                   if (taxa_lut[term].hasOwnProperty(taxon_id)) {
                     taxa_lut[term][taxon_id] += term_tally[t];
