@@ -151,6 +151,7 @@ collections.expression.mongoCollection().then(function(atlas) {
                   for (var f in rep) {
                     solr['model_rep_'+f] = rep[f];
                   }
+                  if (solr.model_rep_name) uniq[solr.model_rep_name.toLowerCase()] = solr.model_rep_name;
                 }
               }
             }
