@@ -5,7 +5,8 @@ var _ = require('lodash');
 function get_rep(c) {
   var rep = {
     id: c.id,
-    taxon_id: c.taxon_id
+    taxon_id: c.taxon_id,
+    identity: c.percent_identity
   };
   if (c.hasOwnProperty('name')) {
     rep.name = c.name;
@@ -76,11 +77,15 @@ collections.expression.mongoCollection().then(function(atlas) {
           solr.compara_neighbors_10 = generateNeighborhood(p-10, 2*10 + 1);
           solr.compara_neighbors_20 = generateNeighborhood(p-20, 2*20 + 1);
 
-          solr.description.split(/\s+/).forEach(function(w) {
-            if (w.match(/^[a-z].*[0-9]$/i)) {
-              solr.synonyms.push(w);
-            }
-          });
+          // solr.description.split(/\s+/).forEach(function(w) {
+          //   if (w.match(/^[a-z].*[0-9]$/i)) {
+          //     solr.synonyms.push(w);
+          //   }
+          // });
+          if (mongo.atlas_id) {
+            solr.synonyms.push(mongo.atlas_id);
+            solr.atlas_id = mongo.atlas_id;
+          }
 
           // uniqify synonyms
           var uniq = {};
@@ -144,6 +149,7 @@ collections.expression.mongoCollection().then(function(atlas) {
                   for (var f in rep) {
                     solr['closest_rep_'+f] = rep[f];
                   }
+                  if (solr.closest_rep_name) uniq[solr.closest_rep_name.toLowerCase()] = solr.closest_rep_name;
                 }
 
                 if (mhgr.hasOwnProperty('model')) {

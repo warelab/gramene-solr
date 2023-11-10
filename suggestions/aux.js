@@ -103,21 +103,13 @@ var mongo2solr = {
     return solr;
   },
   taxonomy: function(doc,genes,specificity) {
-    function getRank(doc) {
-      if (doc.hasOwnProperty('property_value')) {
-        var rank = doc.property_value.match(/has_rank NCBITaxon:(.*)/);
-        if (rank && rank.length===2) {
-          return rank[1];
-        }
-      }
-      return '';
-    }
+    const rank = doc.rank === "no rank" ? '' : doc.rank;
     var solr = {
       category: 'Taxonomy',
-      subcategory: getRank(doc),
+      subcategory: rank,
       int_id: doc._id,
       id: doc.id,
-      display_name: doc.name,
+      display_name: `${doc.name} (${rank})`,
       name: doc.name,
       fq_field: 'taxonomy__ancestors',
       fq_value: doc._id,
