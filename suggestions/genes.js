@@ -35,7 +35,9 @@ collections.genes.mongoCollection().then(function(collection) {
       uniqueId[d._id.toUpperCase()] = d.taxon_id;
       originalCase[d._id.toUpperCase()] = d._id;
       if (d.synonyms) {
-        d.synonyms.forEach(function(syn) {
+        d.synonyms.filter(function(syn) {
+          return syn.length >= 10
+        }).forEach(function(syn) {
           uniqueId[syn.toUpperCase()] = d.taxon_id;
           originalCase[syn.toUpperCase()] = syn;
           synOf[syn.toUpperCase()] = d._id;
