@@ -242,6 +242,7 @@ foreach my $sr_id(@sr_ids) {
 		my $gt_code = shift @genotypes;
 		if (exists $genotype_to_ACGT{$gt_code}{$alt}) {
             my $pop = $individual_lut{$individual_id};
+            next unless $pop;
             my $alleles = scalar keys %{$genotype_to_ACGT{$gt_code}{$alt}} == 1 ? 'homo' : 'het';
             for my $con (split /,/, $c) {
                 next unless $consequence_level{$con} > 0;
