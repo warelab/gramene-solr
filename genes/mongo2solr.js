@@ -128,7 +128,15 @@ collections.expression.mongoCollection().then(function(atlas) {
               if (exp_id !== '_id') {
                 let solrKey = exp_id.replace(/-/g,'_');
                 _.forEach(samples, function(sample) {
-                  solr[`${solrKey}_${sample.group}__expr`] = sample.value;
+                  if (sample.value) {
+                    solr[`${solrKey}_${sample.group}__expr`] = sample.value;
+                  }
+                  if (sample.l2fc) {
+                    solr[`${solrKey}_${sample.group}_l2fc_attr_f`] = sample.l2fc;
+                  }
+                  if (sample.p_value) {
+                    solr[`${solrKey}_${sample.group}_pval_attr_f`] = sample.p_value;
+                  }
                 });
               }
             });
