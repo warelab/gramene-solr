@@ -179,47 +179,71 @@ collections.genes.mongoCollection().then(function(collection) {
               console.log(JSON.stringify(solr));
             });
 
-            // biotype suggestion
-            var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=biotype';
+            // PanOryza__xrefs suggestion
+            var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=PanOryza__xrefs';
             console.error(url);
             http.read(url).then(function(data) {
-              var biotype_count = JSON.parse(data).facet_counts.facet_fields.biotype;
-              for (var biotype in biotype_count) {
-                var taxa = getTaxa('biotype:'+biotype);
+              var xref_count = JSON.parse(data).facet_counts.facet_fields.PanOryza__xrefs;
+              for (var xref in xref_count) {
+                var taxa = getTaxa('PanOryza__xrefs:'+xref);
                 var solr = {
-                  category    : 'Biotypes',
+                  category    : 'PanOryza pan genes',
                   id          : '_term_'+ ++n,
-                  display_name: biotype,
-                  name        : biotype,
-                  fq_field    : 'biotype',
-                  fq_value    : biotype,
+                  display_name: xref,
+                  name        : xref,
+                  fq_field    : 'PanOryza__xrefs',
+                  fq_value    : xref,
                   taxon_id    : taxa.ids,
                   taxon_freq  : taxa.counts,
-                  num_genes   : biotype_count[biotype],
+                  num_genes   : xref_count[xref],
                   relevance   : 1
                 };
                 console.log(',');
                 console.log(JSON.stringify(solr));
               }
+              
+              // biotype suggestion
+              url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=biotype';
+              console.error(url);
+              http.read(url).then(function(data) {
+                var biotype_count = JSON.parse(data).facet_counts.facet_fields.biotype;
+                for (var biotype in biotype_count) {
+                  var taxa = getTaxa('biotype:'+biotype);
+                  var solr = {
+                    category    : 'Biotypes',
+                    id          : '_term_'+ ++n,
+                    display_name: biotype,
+                    name        : biotype,
+                    fq_field    : 'biotype',
+                    fq_value    : biotype,
+                    taxon_id    : taxa.ids,
+                    taxon_freq  : taxa.counts,
+                    num_genes   : biotype_count[biotype],
+                    relevance   : 1
+                  };
+                  console.log(',');
+                  console.log(JSON.stringify(solr));
+                }
       
-              // output unique IDs
-              console.error('output uniqueIds');
-              for (var uid in uniqueId) {
-                console.log(',');
-                console.log(JSON.stringify({
-                  category : 'Genes',
-                  subcategory : 'id',
-                  fq_field : 'id',
-                  fq_value : synOf[uid] || originalCase[uid],
-                  id       : originalCase[uid],
-                  display_name : originalCase[uid],
-                  num_genes : 1,
-                  relevance : 1.2,
-                  taxon_id : uniqueId[uid],
-                  taxon_freq : [1]
-                }));
-              }
-              console.log(']');
+                // output unique IDs
+                console.error('output uniqueIds');
+                for (var uid in uniqueId) {
+                  console.log(',');
+                  console.log(JSON.stringify({
+                    category : 'Genes',
+                    subcategory : 'id',
+                    fq_field : 'id',
+                    fq_value : synOf[uid] || originalCase[uid],
+                    id       : originalCase[uid],
+                    display_name : originalCase[uid],
+                    num_genes : 1,
+                    relevance : 1.2,
+                    taxon_id : uniqueId[uid],
+                    taxon_freq : [1]
+                  }));
+                }
+                console.log(']');
+              });
             });
           });
         });

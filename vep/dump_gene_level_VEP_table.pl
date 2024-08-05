@@ -119,6 +119,17 @@ my %consequence_level = (
     upstream_gene_variant              => 0
 );
 
+my (@these_cs, @not_these);
+for my $c (keys %consequence_level) {
+    if ($consequence_level{$c} > 0) {
+        push @these_cs, $c;
+    } else {
+        push @not_these, $c;
+    }
+}
+my $in_these_cs = join (",", map {"'$_'"} @these_cs);
+my $not_these_cs = join (",", map {"'$_'"} @not_these);
+
 # Load the ensembl file
 Bio::EnsEMBL::Registry->load_all( $registry );
 
@@ -146,13 +157,13 @@ $t2g{$tr_id} = $g_id while $sth->fetch();
 $sth->finish();
 
 # get the taxonomy id
-$sth = $gdbc->prepare("select meta_value from meta where meta_key = 'species.taxonomy_id' and species_id = 1");
+$sth = $gdbc->prepare("select meta_value from meta where meta_key = 'species.production_name' and species_id = 1");
 $sth->execute();
-my ($taxon_id);
-$sth->bind_columns(\$taxon_id);
+my ($prod_name);
+$sth->bind_columns(\$prod_name);
 $sth->fetch();
 $sth->finish();
-print STDERR "taxon_id $taxon_id\n";
+print STDERR "prod_name $prod_name\n";
 
 # get seq_regions
 $sth = $dbc->prepare(qq{
@@ -179,16 +190,25 @@ $sth->finish();
 
 # get a lookup table mapping individual_id to name, source and population
 $sth = $dbc->prepare(qq{
-  SELECT s.individual_id, s.name, st.source_id, sp.population_id from sample s, study st, sample_population sp where s.sample_id = sp.sample_id and s.study_id = st.study_id
+  SELECT s.sample_id, s.name, st.source_id, sp.population_id, st.study_type
+  from sample s, study st, sample_population sp
+  where s.sample_id = sp.sample_id and s.study_id = st.study_id
 });
+# $sth = $dbc->prepare(qq{
+#   SELECT s.sample_id, s.individual_id, s.name, st.source_id, st.study_type
+#   from sample s, study st
+#   where s.study_id = st.study_id
+# });
 $sth->execute();
 my %individual_pop;
 my %individual_source;
 my %individual_name;
-while (my ($id,$name,$source,$pop) = $sth->fetchrow_array) {
-  $individual_pop{$id} = $pop;
-  $individual_source{$id} = $source;
-  $individual_name{$id} = $name;
+my %study_type;
+while (my ($sample,$name,$source,$pop,$stype) = $sth->fetchrow_array) {
+  $individual_source{$sample} = $source;
+  $individual_name{$sample} = $name;
+  $individual_pop{$sample} = $pop;
+  $study_type{$pop} = ($stype and $stype eq 'EMS') ? 'EMS' : 'NAT';
 }
 $sth->finish();
 
@@ -213,73 +233,101 @@ $sth = $dbc->prepare(qq{
   SELECT vf.source_id,tv.feature_stable_id, tv.allele_string, tv.consequence_types, tv.cdna_start, sr.name, vf.seq_region_start, vf.seq_region_end, vf.seq_region_strand, g.*
   FROM compressed_genotype_var g, variation_feature vf, transcript_variation tv, seq_region sr
   WHERE vf.seq_region_id = ?
-  AND tv.consequence_types NOT IN ('intergenic_variant','upstream_gene_variant','downstream_gene_variant','downstream_gene_variant,upstream_gene_variant','intron_variant','intron_variant,downstream_gene_variant','intron_variant,upstream_gene_variant')
-  AND vf.consequence_types NOT IN ('intergenic_variant','upstream_gene_variant','downstream_gene_variant','downstream_gene_variant,upstream_gene_variant','intron_variant','intron_variant,downstream_gene_variant','intron_variant,upstream_gene_variant')
+  AND tv.consequence_types IN ($in_these_cs)
+  AND vf.consequence_types NOT IN ($not_these_cs)
+  AND tv.variation_feature_id = vf.variation_feature_id
+  AND vf.seq_region_id = sr.seq_region_id
+  AND vf.variation_id = g.variation_id
+}, {'mysql_store_result' => 1});
+
+$sth = $dbc->prepare(qq{
+  SELECT vf.source_id,tv.feature_stable_id, tv.allele_string, tv.consequence_types, tv.cdna_start, sr.name, vf.seq_region_start, vf.seq_region_end, vf.seq_region_strand, g.*
+  FROM compressed_genotype_var g, variation_feature vf, transcript_variation tv, seq_region sr
+  WHERE tv.consequence_types = ?
   AND tv.variation_feature_id = vf.variation_feature_id
   AND vf.seq_region_id = sr.seq_region_id
   AND vf.variation_id = g.variation_id
 }, {'mysql_use_result' => 1});
 
 my @json;
-foreach my $sr_id(@sr_ids) {
-  $sth->execute($sr_id);
+# foreach my $sr_id(@sr_ids) {
+for my $con (@these_cs) {
+    print STDERR "fetching $con variants\n";
+
+#    $sth->execute($sr_id);
+    $sth->execute($con);
+  my $nrows = $sth->rows;
+  # print STDERR "number of rows: $nrows\n";
   my %transcript_pop_consequence_sample;
   my ($source_id, $t, $a, $c, $cdna_start, $n, $s, $e, $r, $v, $ss, $g);
   $sth->bind_columns(\$source_id, \$t, \$a, \$c, \$cdna_start, \$n, \$s, \$e, \$r, \$v, \$ss, \$g);
   
   my %done;
   while($sth->fetch) {
+      # print STDERR join ("\t", $source_id, $t, $a, $c, $cdna_start, $n, $s, $e, $r, $v, $ss),"\n";
     next unless $t2g{$t}; # only do canonical transcripts
-    my @consequences;
-    for my $con (split /,/, $c) {
-        if ($consequence_level{$con} > 0) {
-            push @consequences, $con;
-         }
-    }
-    next unless @consequences;
+    # my @consequences;
+    # for my $con (split /,/, $c) {
+    #     if (exists $consequence_level{$con} and $consequence_level{$con} > 0) {
+    #         push @consequences, $con;
+    #      }
+    # }
+    # print STDERR "2\n";
+    # next unless @consequences;
     my ($ref,$alt,@etc) = split('/',$a);
     print STDERR "$a $ref, $alt, @etc\n" if (@etc);
 	my @genotypes = unpack("(ww)*", $g);
 	while(@genotypes) {
-		my $individual_id = shift @genotypes;
+		my $sample_id = shift @genotypes;
 		my $gt_code = shift @genotypes;
-        next unless $individual_id;
+        # $sample_id or print STDERR "no sample id?\n";
+        next unless $sample_id;
         next unless exists $genotype_to_ACGT{$gt_code}{$alt};
-        my $ipop = $individual_pop{$individual_id};
-        my $isource = $individual_source{$individual_id};
-        next unless $ipop and $isource;
-        next unless $isource == $source_id;
+        my $ipop = $individual_pop{$sample_id};
+        my $isource = $individual_source{$sample_id};
+        # print STDERR "5\n";
+        # next unless $ipop and $isource;
+        # $isource or print STDERR "no isource for sample_id $sample_id\n";
+        next unless $isource;
+        # $isource == $source_id or print STDERR "source mismatch $sample_id, $isource, $source_id\n";
+        # next unless $isource == $source_id;
         my $alleles = scalar keys %{$genotype_to_ACGT{$gt_code}} == 1 ? 'homo' : 'het';
-        for my $con (@consequences) {
-          if ($con eq 'missense_variant' and $domains{$t}) {
-            my %dom_types;
-            for my $dom (@{$domains{$t}}) {
-              if ($dom->{start} <= $cdna_start and $cdna_start <= $dom->{end}) {
-                  $dom_types{$dom->{type}}=1;
-                # $con .= "_".$dom->{type}
-              }
-            }
-            if (keys %dom_types) {
-                $con = join("_",$con, sort keys %dom_types);
-            }
-          }
-          $transcript_pop_consequence_sample{$t2g{$t}}{$ipop}{$con}{$alleles}{$individual_id} = 1;
-        }
+        # print STDERR "7 $alleles @consequences\n";
+        $transcript_pop_consequence_sample{$t2g{$t}}{$ipop}{$con}{$alleles}{$sample_id} = 1;
+#        $transcript_pop_consequence_sample{$t2g{$t}}{$ipop}{$con}{$alleles}{$individual_id} = 1;
+        # for my $con (@consequences) {
+        #   if ($con eq 'missense_variant' and $domains{$t}) {
+        #     my %dom_types;
+        #     for my $dom (@{$domains{$t}}) {
+        #       if ($dom->{start} <= $cdna_start and $cdna_start <= $dom->{end}) {
+        #           $dom_types{$dom->{type}}=1;
+        #         # $con .= "_".$dom->{type}
+        #       }
+        #     }
+        #     if (keys %dom_types) {
+        #         $con = join("_",$con, sort keys %dom_types);
+        #     }
+        #   }
+        #   print STDERR "GOT $t2g{$t} $ipop $con $alleles $individual_id\n";
+        #   $transcript_pop_consequence_sample{$t2g{$t}}{$ipop}{$con}{$alleles}{$individual_id} = 1;
+        # }
     }
     # print join("\t", ($t2g{$t}, $t, $a, $c, $n, $s, $e, $r, join(',',@alt_samples))), "\n" if (@alt_samples);
   }
   $sth->finish();
+  print STDERR "finished reading variants\n";
   for my $tid (sort keys %transcript_pop_consequence_sample) {
     my %any;
     my @veps;
     for my $pop_id (sort keys %{$transcript_pop_consequence_sample{$tid}}) {
-      my $global_pop_id = $taxon_id . "." . $pop_id;
+      my $stype = $study_type{$pop_id};
+      my $global_pop_id = $prod_name . "__" . $pop_id;
       for my $con (sort keys %{$transcript_pop_consequence_sample{$tid}{$pop_id}}) {
         for my $allele (keys %{$transcript_pop_consequence_sample{$tid}{$pop_id}{$con}}) {
           my @samples = sort keys %{$transcript_pop_consequence_sample{$tid}{$pop_id}{$con}{$allele}};
           # my @global_samples = map {$taxon_id . "." . $_} @samples;
           # push @veps, "\"vep__${global_pop_id}__${con}__${allele}\":[".join(',', @global_samples)."]\n";
-          print join("\t", $tid, $pop_id, $con, $allele, join(",",map {$individual_name{$_}} @samples) ),"\n";
+          print join("\t", $tid, $global_pop_id, $stype, $con, $allele, join(",",map {$individual_name{$_}} @samples) ),"\n";
           # for my $sample (keys %{$transcript_pop_consequence_sample{$tid}{$pop_id}{$con}}) {
           #     print join("\t", $tid, $con, join("_",$taxon_id,$pop_id), $sample)),"\n";
             # $any{$pop_id}{$sample} = 1;
@@ -293,5 +341,6 @@ foreach my $sr_id(@sr_ids) {
     # }
     # print "}\n";
   }
-}
+} 
+print STDERR "finished\n";
 #print "{",join(",",@json),"}\n";

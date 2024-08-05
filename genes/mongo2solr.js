@@ -237,6 +237,10 @@ collections.expression.mongoCollection().then(function(atlas) {
               if (xref.db === 'PUBMED') {
                 pubs.push(xref.ids[0])
               }
+              else if (xref.db === 'PanOryza') {
+                solr['PanOryza__xrefs'] = xref.ids;
+                solr.capabilities.push('PanOryza');
+              }
               else if (!mongo.annotations.hasOwnProperty(xref.db)) {
                 solr[xref.db + '__xrefs'] = xref.ids;
                 have_xrefs=true;
