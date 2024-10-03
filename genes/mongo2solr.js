@@ -24,8 +24,10 @@ collections.expression.mongoCollection().then(function(atlas) {
     collections.genes.mongoCollection().then(function(collection) {
       var cursor = collection.find({},{sort:{'species_idx':1,'db_type':1,'gene_idx':1}});
       var n=0;
-      var p=0;
+      var p_padding = 100;
+      var p= 0 - p_padding;
       var terminator = {}; // key is lowercase version, value is original term
+      var current_region = "not likely";
       cursor.each(function(err,mongo) {
         if (err) throw err;
         if (mongo == null) {
@@ -34,6 +36,10 @@ collections.expression.mongoCollection().then(function(atlas) {
         }
         else {
           var location = mongo.location;
+          if (location.region !== current_region) {
+            p += p_padding;
+            current_region = location.region;
+          }
           if (!mongo.description) {
             mongo.description = 'unknown';
           }
@@ -236,6 +242,10 @@ collections.expression.mongoCollection().then(function(atlas) {
             mongo.xrefs.forEach(function(xref) {
               if (xref.db === 'PUBMED') {
                 pubs.push(xref.ids[0])
+              }
+              else if (xref.db === 'PanOryza') {
+                solr['PanOryza__xrefs'] = xref.ids;
+                solr.capabilities.push('PanOryza');
               }
               else if (!mongo.annotations.hasOwnProperty(xref.db)) {
                 solr[xref.db + '__xrefs'] = xref.ids;
