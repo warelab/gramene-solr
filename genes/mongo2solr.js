@@ -70,6 +70,7 @@ collections.expression.mongoCollection().then(function(atlas) {
             system_name : mongo.system_name,
         
             capabilities : ['location'],
+            saved_search : [] // initialize empty list. TODO: at release time, update this field based on previous core
           };
 
           function generateNeighborhood(start,n) {
@@ -279,7 +280,7 @@ collections.expression.mongoCollection().then(function(atlas) {
               solr.capabilities.push(f);
               solrField = f + '__ancestors';
               if (mongo.annotations[f].ancestors) {
-                solr[solrField] = mongo.annotations[f].ancestors;
+                solr[solrField] = mongo.annotations[f].ancestors.filter(a => typeof a === 'number');
               }
               else {
                 solr[solrField] = [];

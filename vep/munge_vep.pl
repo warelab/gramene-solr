@@ -6,9 +6,10 @@ use autodie;
 # input file is 5 columns
 # 1. gene_id
 # 2. population_id
-# 3. consequence
-# 4. homo/het
-# 5. individuals (comma sep)
+# 3. population type (EMS or NAT)
+# 4. consequence
+# 5. homo/het
+# 6. individuals (comma sep)
 
 # generate a tab delimited file
 # 1. id (aka gene_id)
@@ -17,19 +18,17 @@ use autodie;
 # n+1 VEP_merged_EMS_attr_ss
 # n+1 VEP_merged_NAT_attr_ss
 
-my @poptype = qw(NA EMS EMS NAT EMS NAT); # HARDCODED classifications of cabot:sorghum_bicolor_variation_6_87_30/population
-
 my %hsh;
 my %merged;
 my %out;
 while (<>) {
     chomp;
-    my ($id, $pop_id, $conseq, $hh, $inds) = split /\t/, $_;
+    my ($id, $pop_id, $poptype, $conseq, $hh, $inds) = split /\t/, $_;
     $out{$id}{id} = $id;
     $out{$id}{capabilities} = "VEP";
     $hsh{$conseq}{$hh}{$pop_id}{$id} = $inds;
     for my $ind (split /,/, $inds) {
-        $merged{$poptype[$pop_id]}{$id}{$ind}=1;
+        $merged{$poptype}{$id}{$ind}=1;
     }
 }
 
