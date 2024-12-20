@@ -97,7 +97,7 @@ my %consequence_level = (
     "3_prime_UTR_variant"              => 0,
     "5_prime_UTR_variant"              => 0,
     coding_sequence_variant            => 0,
-    frameshift_variant                 => 0,
+    frameshift_variant                 => 1,
     downstream_gene_variant            => 0,
     inframe_deletion                   => 0,
     inframe_insertion                  => 0,
@@ -241,9 +241,9 @@ $sth = $dbc->prepare(qq{
 }, {'mysql_store_result' => 1});
 
 $sth = $dbc->prepare(qq{
-  SELECT vf.source_id,tv.feature_stable_id, tv.allele_string, tv.consequence_types, tv.cdna_start, sr.name, vf.seq_region_start, vf.seq_region_end, vf.seq_region_strand, g.*
+  SELECT tv.feature_stable_id, tv.allele_string, tv.consequence_types, g.*
   FROM compressed_genotype_var g, variation_feature vf, transcript_variation tv, seq_region sr
-  WHERE tv.consequence_types = ?
+  WHERE FIND_IN_SET(?, vf.consequence_types) AND FIND_IN_SET(?, tv.consequence_types)
   AND tv.variation_feature_id = vf.variation_feature_id
   AND vf.seq_region_id = sr.seq_region_id
   AND vf.variation_id = g.variation_id
@@ -255,12 +255,12 @@ for my $con (@these_cs) {
     print STDERR "fetching $con variants\n";
 
 #    $sth->execute($sr_id);
-    $sth->execute($con);
+    $sth->execute($con,$con);
   my $nrows = $sth->rows;
-  # print STDERR "number of rows: $nrows\n";
+  print STDERR "number of rows: $nrows\n";
   my %transcript_pop_consequence_sample;
   my ($source_id, $t, $a, $c, $cdna_start, $n, $s, $e, $r, $v, $ss, $g);
-  $sth->bind_columns(\$source_id, \$t, \$a, \$c, \$cdna_start, \$n, \$s, \$e, \$r, \$v, \$ss, \$g);
+  $sth->bind_columns(\$t, \$a, \$c, \$v, \$ss, \$g);
   
   my %done;
   while($sth->fetch) {
@@ -286,9 +286,9 @@ for my $con (@these_cs) {
         my $ipop = $individual_pop{$sample_id};
         my $isource = $individual_source{$sample_id};
         # print STDERR "5\n";
-        # next unless $ipop and $isource;
+        next unless $ipop and $isource;
         # $isource or print STDERR "no isource for sample_id $sample_id\n";
-        next unless $isource;
+        # next unless $isource;
         # $isource == $source_id or print STDERR "source mismatch $sample_id, $isource, $source_id\n";
         # next unless $isource == $source_id;
         my $alleles = scalar keys %{$genotype_to_ACGT{$gt_code}} == 1 ? 'homo' : 'het';

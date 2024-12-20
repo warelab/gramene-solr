@@ -164,7 +164,7 @@ collections.expression.mongoCollection().then(function(atlas) {
                   for (var f in rep) {
                     solr['closest_rep_'+f] = rep[f];
                   }
-                  if (solr.closest_rep_name) uniq[solr.closest_rep_name.toLowerCase()] = solr.closest_rep_name;
+                  // if (solr.closest_rep_name) uniq[solr.closest_rep_name.toLowerCase()] = solr.closest_rep_name;
                 }
 
                 if (mhgr.hasOwnProperty('model')) {
@@ -172,7 +172,7 @@ collections.expression.mongoCollection().then(function(atlas) {
                   for (var f in rep) {
                     solr['model_rep_'+f] = rep[f];
                   }
-                  if (solr.model_rep_name) uniq[solr.model_rep_name.toLowerCase()] = solr.model_rep_name;
+                  // if (solr.model_rep_name) uniq[solr.model_rep_name.toLowerCase()] = solr.model_rep_name;
                 }
               }
             }
@@ -247,6 +247,14 @@ collections.expression.mongoCollection().then(function(atlas) {
               else if (xref.db === 'PanOryza') {
                 solr['PanOryza__xrefs'] = xref.ids;
                 solr.capabilities.push('PanOryza');
+              }
+              else if (xref.db === 'SB_PanGene') {
+                solr['SB_PanGene__xrefs'] = xref.ids;
+                solr.capabilities.push('SB_PanGene');
+              }
+              else if (xref.db === 'Grassius') {
+                solr['Grassius__xrefs'] = xref.ids;
+                solr.capabilities.push('Grassius');
               }
               else if (!mongo.annotations.hasOwnProperty(xref.db)) {
                 solr[xref.db + '__xrefs'] = xref.ids;
