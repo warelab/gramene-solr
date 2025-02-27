@@ -117,6 +117,9 @@ collections.expression.mongoCollection().then(function(atlas) {
           // put the id and name back in
           uniq[lcName] = solr.name;
           uniq[lcId] = solr.id;
+          
+          // add the description
+          uniq[solr.description.toLowerCase()] = solr.description;
       
           if (mongo.summary) {
             solr.summary = mongo.summary;
