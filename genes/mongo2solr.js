@@ -119,7 +119,9 @@ collections.expression.mongoCollection().then(function(atlas) {
           uniq[lcId] = solr.id;
           
           // add the description
-          uniq[solr.description.toLowerCase()] = solr.description;
+          if (solr.description !== "unknown") {
+            uniq[solr.description.toLowerCase()] = solr.description;
+          }
       
           if (mongo.summary) {
             solr.summary = mongo.summary;
