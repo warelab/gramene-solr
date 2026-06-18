@@ -18,8 +18,8 @@ import mongo_source
 def main():
     system_name, taxon = sys.argv[1], int(sys.argv[2])
 
-    assays = mongo_source.load_assays(taxon)
-    experiments = mongo_source.experiments_for_taxon(taxon)
+    assays = mongo_source.load_assays(system_name)
+    experiments = mongo_source.experiments_for_genome(system_name)
     json.dump(assays, open(f"{taxon}.assays_cache.json", "w"))
 
     # inventory

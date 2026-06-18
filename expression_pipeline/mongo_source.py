@@ -132,22 +132,46 @@ def iter_genome(system_name, skip=0):
 
 
 # --------------------------------------------------------------------- assays / experiments
-def load_assays(taxon):
-    """{assay_id: assay} for ALL assays of the experiments this taxon participates in
-    (taxon = NCBI base id). Same shape as the old discovery cache."""
-    js = ("var tx=%d;"
-          "var exps=db.assays.distinct('experiment',{taxon_id:tx});"
+def _experiments_for_genome(system_name):
+    """Distinct GXA experiment accessions that THIS genome's genes have expression for, derived from
+    the genes ⋈ expression join (NOT the assay taxon). A study's gene ids pin its data to one genome,
+    so this picks an experiment up whether it is tagged with the genome's taxon, a parent species, a
+    subspecies/cultivar, or anything else — and stays correct for pan-genomic studies whose samples
+    span genomes. Returns [] if the genome has no expression."""
+    js = ("db.genes.aggregate(["
+          "  {$match:{system_name:%s}},"
+          "  {$lookup:{from:'expression',localField:'_id',foreignField:'_id',as:'e'}},"
+          "  {$unwind:'$e'},"
+          "  {$project:{k:{$objectToArray:'$e'}}},"
+          "  {$unwind:'$k'},"
+          "  {$match:{'k.k':{$ne:'_id'}}},"
+          "  {$group:{_id:'$k.k'}}"
+          "],{allowDiskUse:true}).forEach(function(d){print(JSON.stringify({e:d._id}));});"
+          ) % json.dumps(system_name)
+    return [o["e"] for o in _stream(js)]
+
+
+def load_assays(system_name):
+    """{assay_id: assay} for every assay of the experiments this genome's genes have expression for.
+    Gene-driven (see _experiments_for_genome) so experiments tagged with a subspecies/cultivar or a
+    parent species are still loaded. Same shape as the old discovery cache."""
+    exps = _experiments_for_genome(system_name)
+    if not exps:
+        return {}
+    js = ("var exps=%s;"
           "db.assays.find({experiment:{$in:exps}}).forEach(function(a){print(JSON.stringify(a));});"
-          ) % int(taxon)
+          ) % json.dumps(exps)
     return {a["_id"]: a for a in _stream(js)}
 
 
-def experiments_for_taxon(taxon):
-    """{exp_id: experiment} for the experiments this taxon participates in."""
-    js = ("var tx=%d;"
-          "var exps=db.assays.distinct('experiment',{taxon_id:tx});"
+def experiments_for_genome(system_name):
+    """{exp_id: experiment} for the experiments this genome's genes have expression for."""
+    exps = _experiments_for_genome(system_name)
+    if not exps:
+        return {}
+    js = ("var exps=%s;"
           "db.experiments.find({_id:{$in:exps}}).forEach(function(e){print(JSON.stringify(e));});"
-          ) % int(taxon)
+          ) % json.dumps(exps)
     return {e["_id"]: e for e in _stream(js)}
 
 
