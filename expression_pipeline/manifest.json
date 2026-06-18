@@ -1,0 +1,11 @@
+{
+  "api_base": "https://data.sorghumbase.org/sorghum_v11",
+  "genomes": [
+    {"system_name": "sorghum_bicolor",           "taxon": 4558,  "clade": "grass",     "short": "sorghum",       "name": "Sorghum bicolor"},
+    {"system_name": "zea_maysb73",                "taxon": 4577,  "clade": "grass",     "short": "maize",         "name": "Zea mays (B73)"},
+    {"system_name": "oryza_sativa",               "taxon": 39947, "clade": "grass",     "short": "rice",          "name": "Oryza sativa Japonica"},
+    {"system_name": "arabidopsis_thaliana",       "taxon": 3702,  "clade": "eudicot",   "short": "arabidopsis",   "name": "Arabidopsis thaliana"},
+    {"system_name": "vitis_vinifera",             "taxon": 29760, "clade": "eudicot",   "short": "grape",         "name": "Vitis vinifera"},
+    {"system_name": "chlamydomonas_reinhardtii",  "taxon": 3055,  "clade": "algae",     "short": "chlamydomonas", "name": "Chlamydomonas reinhardtii"}
+  ]
+}

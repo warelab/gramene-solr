@@ -168,7 +168,96 @@ var mongo2solr = {
   }
 };
 
-var promises = _.map(mongo2solr, function(f,key) {
+// Transcription Factor Family suggestions: unlike the ontology categories above,
+// these come from a flat multi-valued string field on the genes core
+// (grassius_homolog__attr_ss), which is a SUPERSET of the direct Grassius
+// annotation (every gene in a Grassius-containing gene tree carries the tree's
+// TF families). So we just facet that one field — no mongo collection / ancestors.
+function tfFamilySuggestions() {
+  var field = 'grassius_homolog__attr_ss';
+  var url = genesURL
+    + '/query?rows=0&facet=true&facet.limit=-1&facet.mincount=1&json.nl=map'
+    + '&facet.pivot=' + field + ',taxon_id';
+  console.error('TF family started', url);
+  return http.read(url).then(function(databuffer) {
+    var data = JSON.parse(databuffer);
+    var pivot = (data.facet_counts.facet_pivot[field + ',taxon_id']) || [];
+    var solrDocs = pivot.map(function(d) {
+      var taxon_id = [], taxon_freq = [];
+      (d.pivot || []).forEach(function(p) { taxon_id.push(p.value); taxon_freq.push(p.count); });
+      return {
+        category: 'Transcription Factor Family',
+        id: 'GrassiusTF:' + d.value,
+        display_name: d.value,
+        name: d.value,
+        fq_field: field,
+        fq_value: d.value,
+        num_genes: d.count,
+        relevance: 1.15,
+        taxon_id: taxon_id,
+        taxon_freq: taxon_freq
+      };
+    });
+    var deferred = Q.defer();
+    fs.writeFile('TF.json', JSON.stringify(solrDocs, null, '  '), function(err) {
+      if (err) return deferred.reject(err);
+      console.error('TF family wrote ' + solrDocs.length + ' suggestions to TF.json');
+      deferred.resolve(true);
+    });
+    return deferred.promise;
+  });
+}
+
+// Expression-attribute suggestions: facet each expression *_attr_ss field on the
+// genes core and emit one suggestion per value (organ / stress condition / class),
+// all into expr.json. fq_field/fq_value let the UI turn a pick into a genes filter.
+// (expr_organ_level__attr_ss composite tokens are NOT suggested — they're for the
+//  organ x level facet pivot, not type-ahead — but the field is still in the index.)
+function expressionSuggestions() {
+  var cats = [
+    ['expr_specific_to__attr_ss',  'Expression: specific to'],
+    ['expr_enhanced_in__attr_ss',  'Expression: enhanced in'],
+    ['expr_high_in__attr_ss',      'Expression: highly expressed in'],
+    ['expr_activated_by__attr_ss', 'Expression: induced by'],
+    ['expr_repressed_by__attr_ss', 'Expression: repressed by'],
+    ['expr_class__attr_ss',        'Expression: breadth']
+  ];
+  return Q.all(cats.map(function(c) {
+    var field = c[0], category = c[1];
+    var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&facet.mincount=1&json.nl=map'
+            + '&facet.pivot=' + field + ',taxon_id';
+    return http.read(url).then(function(buf) {
+      var pivot = (JSON.parse(buf).facet_counts.facet_pivot[field + ',taxon_id']) || [];
+      return pivot.map(function(d) {
+        var taxon_id = [], taxon_freq = [];
+        (d.pivot || []).forEach(function(p) { taxon_id.push(p.value); taxon_freq.push(p.count); });
+        return {
+          category: category,
+          id: field + ':' + d.value,
+          display_name: ('' + d.value).replace(/_/g, ' '),
+          name: ('' + d.value).replace(/_/g, ' '),
+          fq_field: field,
+          fq_value: d.value,
+          num_genes: d.count,
+          relevance: 1.1,
+          taxon_id: taxon_id,
+          taxon_freq: taxon_freq
+        };
+      });
+    }, function() { return []; });   // a missing field (not yet indexed) -> no suggestions
+  })).then(function(arrs) {
+    var docs = [].concat.apply([], arrs);
+    var deferred = Q.defer();
+    fs.writeFile('expr.json', JSON.stringify(docs, null, '  '), function(err) {
+      if (err) return deferred.reject(err);
+      console.error('expression suggestions wrote ' + docs.length + ' to expr.json');
+      deferred.resolve(true);
+    });
+    return deferred.promise;
+  });
+}
+
+function ontologyPromises() { return _.map(mongo2solr, function(f,key) {
   console.error(key,'started');
   // do a facet query on the genes core on the  key__ancestors field
   var url = genesURL
@@ -281,8 +370,23 @@ var promises = _.map(mongo2solr, function(f,key) {
 
     return deferred.promise;
   });
-});
+}); }
 
-Q.all(promises).then(function(arrayOfTrues) {
-  collections.closeMongoDatabase();
-});
+// Selective generation: `node aux.js <genesURL> [categories]`. With no category arg,
+// regenerate everything (ontologies + TF + expression) — the original behavior. With
+// a comma-separated list (e.g. "expr" or "tf,expr"), regenerate ONLY those files —
+// used by the atomic expression refresh to rebuild just expr.json without re-faceting
+// every ontology (and without opening mongo, which only the ontology categories need).
+var only = (process.argv[3] || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+function want(n) { return only.length === 0 || only.indexOf(n) >= 0; }
+
+var tasks = [];
+var usedMongo = false;
+if (only.length === 0) { tasks = tasks.concat(ontologyPromises()); usedMongo = true; }
+if (want('tf'))   tasks.push(tfFamilySuggestions());
+if (want('expr')) tasks.push(expressionSuggestions());
+
+Q.all(tasks).then(function () {
+  if (usedMongo) collections.closeMongoDatabase();
+  else process.exit(0);
+}).catch(function (e) { console.error('aux.js FATAL', e); process.exit(1); });
