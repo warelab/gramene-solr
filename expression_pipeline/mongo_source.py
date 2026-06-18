@@ -23,10 +23,13 @@ The scorer consumes a flat "doc" (the same shape the solr /search API returned):
 flatten_expr() builds those fields from a mongo expression document (mongo2solr does the
 exact same flattening when it writes the solr core, so the two stay consistent).
 """
-import json, os, subprocess
+import json, os, subprocess, tempfile
 
 MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
 MONGO_DB = os.environ.get("MONGO_DB", "sorghum11")
+# where to spool mongosh output (see _stream); defaults next to this file (on /usr/local,
+# ample) rather than /tmp which may be a small root fs.
+SPOOL_DIR = os.environ.get("MONGO_SPOOL_DIR") or os.path.dirname(os.path.abspath(__file__))
 
 
 def _target():
@@ -34,21 +37,36 @@ def _target():
 
 
 def _stream(js):
-    """Run a mongosh --eval snippet that print()s one JSON object per line; yield parsed objects."""
-    p = subprocess.Popen(["mongosh", "--quiet", _target(), "--eval", js],
-                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    """Run a mongosh --eval snippet that print()s one JSON object per line; yield parsed objects.
+
+    mongosh's stdout is SPOOLED to a temp file first, then parsed. This is essential: if we read
+    the pipe lazily while doing slow per-doc work (scoring), the OS pipe back-pressures mongosh,
+    its server-side cursor goes idle and gets killed, and the stream is silently truncated — worst
+    for genomes with large joined docs (e.g. maize: ~34 KB/doc x 44k genes). Spooling lets mongosh
+    run to completion at disk speed regardless of consumer speed. We also CHECK the exit status and
+    raise on failure instead of swallowing it (the old code sent stderr to /dev/null)."""
+    fd, path = tempfile.mkstemp(suffix=".ndjson", dir=SPOOL_DIR)
     try:
-        for raw in p.stdout:
-            line = raw.decode("utf-8", "replace").strip()
-            if not line or line[0] not in "{[":
-                continue
-            try:
-                yield json.loads(line)
-            except ValueError:
-                continue
+        with os.fdopen(fd, "wb") as out:
+            r = subprocess.run(["mongosh", "--quiet", _target(), "--eval", js],
+                               stdout=out, stderr=subprocess.PIPE)
+        if r.returncode != 0:
+            err = (r.stderr or b"").decode("utf-8", "replace").strip()
+            raise RuntimeError("mongosh failed (rc=%d): %s" % (r.returncode, err[-2000:]))
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line[0] not in "{[":
+                    continue
+                try:
+                    yield json.loads(line)
+                except ValueError:
+                    continue
     finally:
-        p.stdout.close()
-        p.wait()
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
 
 
 # ------------------------------------------------------------------- expr flattening
