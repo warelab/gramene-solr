@@ -20,13 +20,17 @@ function getTaxa(query) {
 // read all of the unique ids from the genes collection
 // to avoid suggesting them as non-unique terms when they are mentioned as an xref or something in another gene
 collections.genes.mongoCollection().then(function(collection) {
-  collection.find({},{_id:1, taxon_id:1, db_type:1, synonyms:1}).toArray(function(err,docs) {
+  collection.find({},{_id:1, taxon_id:1, db_type:1, alt_id:1}).toArray(function(err,docs) {
     if (err) throw err;
     var uniqueId = {};
     var otherfeaturesId = {};
     var uniqueTaxa = {};
     var originalCase = {};
-    var synOf = {};
+    // alternate ids (Sobic./Sb.../GRMZM/pan.../Vitvi.../LOC_Os…) get their own
+    // resolvable suggestions that query the genes-core alt_id field, so an alt id and
+    // its primary id both land on the same gene. UPPERCASE key -> { display: original
+    // case alt id, taxa: {taxon_id: gene count} }.
+    var altId = {};
     docs.forEach(function(d) {
       if (d.db_type != 'core') {
         otherfeaturesId[d._id.toUpperCase()] = d.taxon_id;
@@ -34,13 +38,12 @@ collections.genes.mongoCollection().then(function(collection) {
       uniqueTaxa[d.taxon_id] = 1;
       uniqueId[d._id.toUpperCase()] = d.taxon_id;
       originalCase[d._id.toUpperCase()] = d._id;
-      if (d.synonyms) {
-        d.synonyms.filter(function(syn) {
-          return syn.length >= 10
-        }).forEach(function(syn) {
-          uniqueId[syn.toUpperCase()] = d.taxon_id;
-          originalCase[syn.toUpperCase()] = syn;
-          synOf[syn.toUpperCase()] = d._id;
+      if (d.alt_id) {
+        d.alt_id.forEach(function(a) {
+          if (!a) return;
+          var A = a.toUpperCase();
+          if (!altId[A]) altId[A] = { display: a, taxa: {} };
+          altId[A].taxa[d.taxon_id] = (altId[A].taxa[d.taxon_id] || 0) + 1;
         });
       }
     });
@@ -63,7 +66,7 @@ collections.genes.mongoCollection().then(function(collection) {
           var taxa_lut = {};
           JSON.parse(data).facet_counts.facet_pivot['_terms,taxon_id'].forEach(function(d) {
             var term = d.value; // .toUpperCase(); // don't do this it leads to problems
-            if (!uniqueId.hasOwnProperty(term.toUpperCase())) {
+            if (!uniqueId.hasOwnProperty(term.toUpperCase()) && !altId.hasOwnProperty(term.toUpperCase())) {
               if (term_freq.hasOwnProperty(term)) {
                 term_freq[term] += d.count;
               }
@@ -93,7 +96,7 @@ collections.genes.mongoCollection().then(function(collection) {
             var term_tally = JSON.parse(res.getBody()).facet_counts.facet_fields._terms;
             for (var t in term_tally) {
               var term = t; // .toUpperCase(); // don't do this it leads to problems
-              if (!uniqueId.hasOwnProperty(term.toUpperCase())) {
+              if (!uniqueId.hasOwnProperty(term.toUpperCase()) && !altId.hasOwnProperty(term.toUpperCase())) {
                 if (term_freq.hasOwnProperty(term)) {
                   if (taxa_lut[term].hasOwnProperty(taxon_id)) {
                     taxa_lut[term][taxon_id] += term_tally[t];
@@ -210,13 +213,42 @@ collections.genes.mongoCollection().then(function(collection) {
                   category : 'Genes',
                   subcategory : 'id',
                   fq_field : 'id',
-                  fq_value : synOf[uid] || originalCase[uid],
+                  fq_value : originalCase[uid],
                   id       : originalCase[uid],
                   display_name : originalCase[uid],
                   num_genes : 1,
                   relevance : 1.2,
                   taxon_id : uniqueId[uid],
                   taxon_freq : [1]
+                }));
+              }
+
+              // output alternate ids — each is matched on `name` and resolves by
+              // querying the genes-core alt_id field, so an alt id and its primary id
+              // land on the same gene. Shown under the "Alternate IDs" subcategory.
+              console.error('output alt_ids');
+              for (var A in altId) {
+                var at = altId[A];
+                var ataxa = { ids: [], counts: [] };
+                var atotal = 0;
+                for (var tid in at.taxa) {
+                  ataxa.ids.push(+tid);
+                  ataxa.counts.push(at.taxa[tid]);
+                  atotal += at.taxa[tid];
+                }
+                console.log(',');
+                console.log(JSON.stringify({
+                  category : 'Genes',
+                  subcategory : 'Alternate IDs',
+                  fq_field : 'alt_id',
+                  fq_value : at.display,
+                  id       : 'alt_' + at.display,
+                  display_name : at.display,
+                  name     : at.display,
+                  num_genes : atotal,
+                  relevance : 1.2,
+                  taxon_id : ataxa.ids,
+                  taxon_freq : ataxa.counts
                 }));
               }
               console.log(']');
