@@ -107,7 +107,7 @@ collections.genes.mongoCollection().then(function(collection) {
                 }
                 else if (/[A-Za-z]/.test(term)) { // this is a unique term that contains a word character
                   var solr = {
-                    category    : 'Genes',
+                    category    : 'Genes: symbol/name',
                     subcategory : 'term',
                     id          : '_term_'+ ++n,
                     display_name: term,
@@ -136,7 +136,7 @@ collections.genes.mongoCollection().then(function(collection) {
               taxa.counts.push(taxa_lut[term][taxon_id]);
             }
             var solr = {
-              category    : 'Genes',
+              category    : 'Genes: symbol/name',
               subcategory : 'term',
               id          : '_term_'+ ++n,
               display_name: term,
@@ -210,7 +210,7 @@ collections.genes.mongoCollection().then(function(collection) {
               for (var uid in uniqueId) {
                 console.log(',');
                 console.log(JSON.stringify({
-                  category : 'Genes',
+                  category : 'Genes: primary id',
                   subcategory : 'id',
                   fq_field : 'id',
                   fq_value : originalCase[uid],
@@ -238,7 +238,7 @@ collections.genes.mongoCollection().then(function(collection) {
                 }
                 console.log(',');
                 console.log(JSON.stringify({
-                  category : 'Genes',
+                  category : 'Genes: alternate id',
                   subcategory : 'Alternate IDs',
                   fq_field : 'alt_id',
                   fq_value : at.display,
