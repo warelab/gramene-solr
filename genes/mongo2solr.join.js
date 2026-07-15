@@ -127,7 +127,26 @@ collections.genes.mongoCollection().then(function(genesCol) {
       // put the id and name back in
       uniq[lcName] = solr.name;
       uniq[lcId] = solr.id;
-      
+
+      // alternate ids (Sobic./Sb.../GRMZM/AC/pan.../Vitvi.../LOC_Os…) get their own
+      // indexed + facetable `alt_id` field (powers the "Alternate IDs" suggestion's exact
+      // fq=alt_id resolution) and are also folded into `_terms`. Free-text/API search
+      // reaches them via the schema copyField alt_id -> text (mirroring synonyms), since
+      // they no longer live in gene.synonyms.
+      if (Array.isArray(mongo.alt_id) && mongo.alt_id.length) {
+        var altUniq = {};
+        mongo.alt_id.forEach(function(a) {
+          if (typeof a === 'string' && a.length) {
+            var alc = a.toLowerCase();
+            if (!altUniq.hasOwnProperty(alc)) altUniq[alc] = a;
+            if (!uniq.hasOwnProperty(alc)) uniq[alc] = a; // include in _terms
+          }
+        });
+        var altVals = Object.keys(altUniq).map(function(k){return altUniq[k];});
+        if (altVals.length) solr.alt_id = altVals;
+      }
+
+
       // add the description
       if (solr.description !== "unknown") {
         uniq[solr.description.toLowerCase()] = solr.description;
