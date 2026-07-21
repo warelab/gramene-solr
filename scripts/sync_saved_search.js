@@ -14,6 +14,9 @@
 // idempotent (add-distinct). Trashed-but-restorable lists are kept (their hashes are still present).
 //
 //   config via env: MONGO_URL, SOURCE, TARGET, READ_BATCH, EXIST_BATCH, POST_BATCH
+//   MONGO_URL accepts a COMMA-SEPARATED list — lists now live in per-site dbs (sorghum10/sorghum11)
+//   as well as the legacy shared userData1, and the hash map must be the union of all of them:
+//     MONGO_URL='mongodb://localhost:27017/userData1,mongodb://localhost:27017/sorghum10' node scripts/sync_saved_search.js
 //   flags:          --dry-run   (compute + report, no writes)
 //                   --skip-exist (skip the existence check — trust that every id exists in the new core)
 //
@@ -63,14 +66,26 @@ async function postUpdate(body, commit) {
 }
 
 // 1. hashes still present in userData1.genelists (active + trashed/restorable lists)
+// MONGO_URL may be a COMMA-SEPARATED list of connection strings. Gene lists moved from the shared
+// userData1 db to PER-SITE dbs (sorghum10, sorghum11, ...), so the valid-hash map is the UNION of
+// every genelists collection that still owns lists — reading only userData1 silently drops the
+// site-db lists (their genes get filtered out and never sync forward). A hash absent from ALL of
+// them means the list was force-deleted/purged, which is when we correctly drop its tags.
 async function loadHashSet() {
   const { MongoClient } = require('mongodb');
-  const client = new MongoClient(MONGO_URL);
-  await client.connect();
-  try {
-    const hashes = await client.db().collection('genelists').distinct('hash');
-    return new Set(hashes.map(Number).filter(h => !Number.isNaN(h)));
-  } finally { await client.close(); }
+  const urls = MONGO_URL.split(',').map(s => s.trim()).filter(Boolean);
+  const all = new Set();
+  for (const url of urls) {
+    const client = new MongoClient(url);
+    await client.connect();
+    try {
+      const hashes = (await client.db().collection('genelists').distinct('hash'))
+                       .map(Number).filter(h => !Number.isNaN(h));
+      hashes.forEach(h => all.add(h));
+      console.error(`  ${url} -> ${hashes.length} hashes`);
+    } finally { await client.close(); }
+  }
+  return all;
 }
 
 // 2. scan the OLD core, keeping per gene only the saved_search hashes that are in the map
@@ -97,19 +112,20 @@ async function scanSource(hashSet) {
 
 // 3. which of these ids actually exist in the NEW core (an atomic update on a missing id would
 //    create an orphan partial doc). {!terms} in the POST body scales past URL length limits.
-// CASE: {!terms} is UNANALYZED — it matches raw strings against the indexed terms. The genes-core
-// `id` field is fieldType "lowercase" (KeywordTokenizer + LowerCaseFilter), so the indexed term for
-// SORBI_3001G378900 is sorbi_3001g378900. Sending original-case ids matches nothing and reports every
-// gene as absent. Lowercase both the query terms and the returned ids -> case-insensitive membership.
+// {!terms} is UNANALYZED — it matches raw strings against the indexed terms, so this is only correct
+// while the genes-core uniqueKey `id` is a non-analyzed StrField (type="string"). That is also a hard
+// Solr requirement: with an analyzed uniqueKey (e.g. type="lowercase") document replacement fails and
+// every atomic update below would INSERT a duplicate partial doc instead of updating. If this ever
+// reports 0/N present, check the id fieldType first — that is the symptom.
 async function existingInTarget(ids) {
-  if (SKIP_EXIST) return new Set(ids.map(s => String(s).toLowerCase()));
+  if (SKIP_EXIST) return new Set(ids);
   const present = new Set();
   for (let i = 0; i < ids.length; i += EXIST_BATCH) {
     const batch = ids.slice(i, i + EXIST_BATCH);
     const j = await postSelect(TARGET_SELECT,
-      { q: '{!terms f=id separator="' + SEP + '"}' + batch.map(s => String(s).toLowerCase()).join(SEP),
+      { q: '{!terms f=id separator="' + SEP + '"}' + batch.join(SEP),
         fl: 'id', rows: String(batch.length), wt: 'json' });
-    for (const d of j.response.docs) present.add(String(d.id).toLowerCase());
+    for (const d of j.response.docs) present.add(d.id);
   }
   return present;
 }
@@ -132,9 +148,7 @@ async function existingInTarget(ids) {
   console.error(`new core: ${present.size}/${ids.length} ids present (${ids.length - present.size} absent — skipped)`);
 
   const docs = [];
-  // `present` is keyed lowercase (see existingInTarget); the update payload keeps the ORIGINAL-case
-  // id — the /update path analyzes the uniqueKey, so it routes to the right doc.
-  for (const [id, hashes] of contributing) if (present.has(String(id).toLowerCase())) docs.push({ id, saved_search: { 'add-distinct': hashes } });
+  for (const [id, hashes] of contributing) if (present.has(id)) docs.push({ id, saved_search: { 'add-distinct': hashes } });
   console.error(`atomic add-distinct updates to apply: ${docs.length}`);
 
   if (DRY_RUN) { console.error('DRY RUN — no writes made'); process.exit(0); }
