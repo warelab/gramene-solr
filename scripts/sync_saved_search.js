@@ -97,14 +97,19 @@ async function scanSource(hashSet) {
 
 // 3. which of these ids actually exist in the NEW core (an atomic update on a missing id would
 //    create an orphan partial doc). {!terms} in the POST body scales past URL length limits.
+// CASE: {!terms} is UNANALYZED — it matches raw strings against the indexed terms. The genes-core
+// `id` field is fieldType "lowercase" (KeywordTokenizer + LowerCaseFilter), so the indexed term for
+// SORBI_3001G378900 is sorbi_3001g378900. Sending original-case ids matches nothing and reports every
+// gene as absent. Lowercase both the query terms and the returned ids -> case-insensitive membership.
 async function existingInTarget(ids) {
-  if (SKIP_EXIST) return new Set(ids);
+  if (SKIP_EXIST) return new Set(ids.map(s => String(s).toLowerCase()));
   const present = new Set();
   for (let i = 0; i < ids.length; i += EXIST_BATCH) {
     const batch = ids.slice(i, i + EXIST_BATCH);
     const j = await postSelect(TARGET_SELECT,
-      { q: '{!terms f=id separator="' + SEP + '"}' + batch.join(SEP), fl: 'id', rows: String(batch.length), wt: 'json' });
-    for (const d of j.response.docs) present.add(d.id);
+      { q: '{!terms f=id separator="' + SEP + '"}' + batch.map(s => String(s).toLowerCase()).join(SEP),
+        fl: 'id', rows: String(batch.length), wt: 'json' });
+    for (const d of j.response.docs) present.add(String(d.id).toLowerCase());
   }
   return present;
 }
@@ -127,7 +132,9 @@ async function existingInTarget(ids) {
   console.error(`new core: ${present.size}/${ids.length} ids present (${ids.length - present.size} absent — skipped)`);
 
   const docs = [];
-  for (const [id, hashes] of contributing) if (present.has(id)) docs.push({ id, saved_search: { 'add-distinct': hashes } });
+  // `present` is keyed lowercase (see existingInTarget); the update payload keeps the ORIGINAL-case
+  // id — the /update path analyzes the uniqueKey, so it routes to the right doc.
+  for (const [id, hashes] of contributing) if (present.has(String(id).toLowerCase())) docs.push({ id, saved_search: { 'add-distinct': hashes } });
   console.error(`atomic add-distinct updates to apply: ${docs.length}`);
 
   if (DRY_RUN) { console.error('DRY RUN — no writes made'); process.exit(0); }
