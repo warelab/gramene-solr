@@ -129,8 +129,11 @@
      in a compatible way. Any analysis applied to the <uniqueKey> should _not_ produce multiple
      tokens
    -->   
-   <field name="id" type="lowercase" indexed="true" stored="true" required="true" multiValued="false" /> 
-   <field name="saved_search" type="string" multiValued="true" indexed="true" stored="true" docValues="true"/>
+   <!-- uniqueKey MUST be a non-analyzed type (StrField). With an analyzed type (e.g. "lowercase")
+        Solr cannot replace documents by uniqueKey, so every atomic update / upsert silently INSERTS
+        a duplicate partial doc instead of updating (see the warning above). Keep this as string. -->
+   <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" />
+   <field name="saved_search" type="plong" indexed="true" stored="true" multiValued="true" />
 
    <field name="name" type="text_general" indexed="true" stored="true"/>
    <field name="description" type="text_general" indexed="true" stored="true"/>
