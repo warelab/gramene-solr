@@ -41,6 +41,9 @@ PO_TO_ORGAN = {
  9084: "pericarp",
  # --- vasculature ---
  34: "vasculature", 9015: "vasculature",
+ # xylem / phloem and their cell types: vascular tissue, not separate organs. Studies that
+ # sample wood (e.g. the poplar tissue panel) report these instead of "stem".
+ 5417: "vasculature", 5352: "vasculature", 274: "vasculature", 25417: "vasculature",
 }
 
 # exact-label fallbacks for samples with no PO int_id
@@ -97,7 +100,7 @@ CLADE_OF_TAXON = {
  # eudicots
  3708: "eudicot", 3847: "eudicot", 109376: "eudicot", 3711: "eudicot", 57577: "eudicot",
  3702: "eudicot", 4113: "eudicot", 4081: "eudicot", 81972: "eudicot", 3641: "eudicot",
- 3555: "eudicot", 29760: "eudicot", 3760: "eudicot",
+ 3555: "eudicot", 29760: "eudicot", 3760: "eudicot", 3694: "eudicot",   # populus trichocarpa
  # non-angiosperm
  3218: "bryophyte", 3055: "algae",
 }
