@@ -211,7 +211,13 @@
    <copyField source="compara_idx" dest="compara_idx_multi"/>
 
  <!-- string versions of text fields for faceting - to build the genes suggestions -->
-   <field name="_terms" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
+   <!-- stored=true is REQUIRED, not an optimisation: Solr atomic updates rebuild a document from
+        its stored fields, so an indexed-but-not-stored field with no copyField rule cannot be
+        reconstructed and is silently erased from every doc an atomic update touches. _terms is
+        written directly by genes/mongo2solr.js (not by a copyField), and with stored=false a
+        single 62_attr_atomic run wiped it from 247,323 docs, breaking free-text gene search for
+        them. Changing this requires a full reindex to take effect. -->
+   <field name="_terms" type="string" indexed="true" stored="true" multiValued="true" docValues="false"/>
 
 
    <!-- uncomment the following to ignore any fields that don't already match an existing 
