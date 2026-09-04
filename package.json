@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/warelab/gramene-solr",
   "dependencies": {
+    "gramene-gene-positions": "^2.1.1",
     "gramene-mongodb-config": "git+ssh://git@github.com:warelab/gramene-mongodb-config.git#sorghum_v11",
     "lodash": "^4.17.21",
     "mongodb": "^4.4.0",

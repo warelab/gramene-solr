@@ -52,3 +52,7 @@ __pycache__/
 /expression_pipeline/expression_panel.json
 /expression_pipeline/*_attributes.jsonl
 /expression_pipeline/*_attributes.tsv
+
+# generated attribute tables (rsid is ~6.6 GB across the pan-genome)
+/genes/rsid_attrib_table_for_solr.txt
+/genes/attr_*.tsv
