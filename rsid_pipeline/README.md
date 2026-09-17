@@ -90,9 +90,18 @@ the first run). Use `--chrom-map` to translate; the pipeline never guesses.
 
 ## Genomes whose VCF is on the wrong assembly
 
-Two of the 104 projected VCFs — **`sorghum_353`** and **`sorghum_pi154844`** — do not address the
-assemblies this release's gene models are built on. They are excluded via `RSID_SKIP_GENOMES` in
-`build/config.sh`.
+One of the 104 projected VCFs — **`sorghum_pi154844`** — does not address the assembly this
+release's gene models are built on. It is excluded via `RSID_SKIP_GENOMES` in `build/config.sh`.
+
+`sorghum_353` was excluded for the same reason and is no longer: it was re-projected and re-added
+on 2026-09-04, and now scores `883585/883585 agree (0.0000% mismatch)`. It carries rsIDs on 34,284
+of its 36,435 gene docs.
+
+**Its aborted run left a partial file behind.** `sorghum_pi154844.tsv` still sits in
+`RSID_WORK_DIR` with 26,351 rows from the run that failed the REF guard (74.52% mismatch), and it
+is the only one of the 104 `.tsv` files with **no `.ok` marker**. Never drive downstream work from
+a bare `*.tsv` glob — key off the `.ok` markers or an explicit genome list, or that file's bad
+gene→rsID assignments silently join the output.
 
 This is the pipeline's classic failure shape: nothing about those files looks wrong. The
 chromosome names match (`1`–`10`), the coordinate ranges are plausible, the variant counts are

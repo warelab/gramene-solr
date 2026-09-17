@@ -269,6 +269,27 @@
       <analyzer>
         <tokenizer class="solr.WhitespaceTokenizerFactory"/>
         <filter class="solr.LowerCaseFilterFactory"/>
+        <!-- Drop rsID tokens. rsID suggestions (category "Variants: rsID") are matched EXACTLY,
+             on `name`. `ids` and `synonym` are the two fields the client prefix-queries on every
+             keystroke (ids:${t}* , synonym:${t}* — gramene-search/src/bundles/api.js:20-26), and
+             copyField id->ids / name->synonym would otherwise put ~10M rsID terms in both, so
+             typing "rs" would enumerate the whole range. Measured on this core: a FRESH prefix
+             already costs 6-10 s (ids:sb* 6.6 s, synonym:pro* 9.9 s; repeats return QTime 0 from
+             queryResultCache, which is size 512 with autowarmCount=0). At a 300 ms debounce an
+             rs* range of 10M terms is not survivable.
+             The bound is >=6 digits, not 3: the only existing name-matches of /rs[0-9]{3,}/ in
+             this core are the gene symbols RS33.2, RS31-201, RS40-206 and RS41-202, and those
+             must keep working. Verified before the change: ids/synonym/name each held ZERO
+             tokens matching rs[0-9]{6,}.
+             text_ids has a single analyzer, so this applies at query time too — which is wanted:
+             the client's redundant `ids:rs5413863057` clause then analyzes to no tokens and is
+             dropped, leaving the `name:` clause to do the work. Prefix queries aren't analyzed
+             by this filter (PatternReplaceFilter is not MultiTermAware), but they don't need to
+             be: the terms are simply no longer in the dictionary. -->
+        <filter class="solr.PatternReplaceFilterFactory"
+                pattern="^(rsid_)?rs[0-9]{6,}$" replacement="" replace="all"/>
+        <!-- required: the replace above leaves a zero-length token, which would otherwise index -->
+        <filter class="solr.LengthFilterFactory" min="1" max="255"/>
       </analyzer>
     </fieldType>
         
