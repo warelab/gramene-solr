@@ -24,6 +24,15 @@
 //   node scripts/sync_saved_search.js
 //   SOURCE=https://data.sorghumbase.org/sorghum_v10/search node scripts/sync_saved_search.js
 //
+// SOURCE may also be a FILE rather than a core, which is how you replay a backup taken before a
+// rebuild (the tags are the only record of list membership — genelists stores a hash and a count,
+// never the member ids, so a core rebuild with no surviving older core loses those lists for good):
+//   curl -s '<core>/select?q=saved_search:*&fl=id,saved_search&rows=10000000&wt=json' > backup.json
+//   SOURCE=file:backup.json node scripts/sync_saved_search.js --dry-run
+// Accepts a Solr response envelope, a bare array of {id, saved_search} docs, or JSONL. Hash
+// filtering, the existence check and the atomic add-distinct path are identical either way, so a
+// purged list in an old backup is still dropped rather than resurrected.
+//
 // Uses Node's global fetch (v18+) + the mongodb driver (already a gramene-solr dependency); no new deps.
 
 const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/userData1';
@@ -39,9 +48,14 @@ const EXIST_BATCH = parseInt(process.env.EXIST_BATCH || '5000', 10);
 const POST_BATCH  = parseInt(process.env.POST_BATCH  || '5000', 10);
 const SEP = '|';   // {!terms} separator; gene ids never contain '|'
 
+// SOURCE is either a core URL or a local file (file: prefix, or any path ending .json/.jsonl).
+const SOURCE_IS_FILE = /^file:/i.test(rawSource) || /\.jsonl?$/i.test(rawSource);
+const SOURCE_FILE    = SOURCE_IS_FILE ? rawSource.replace(/^file:(\/\/)?/i, '') : null;
+
 // OLD core read URL: append /select unless it already ends in /select or /search (so the public
 // https://.../sorghum_v10/search endpoint works as-is). NEW core is a direct solr core (needs /update).
-const SOURCE_SELECT = /\/(select|search)$/.test(rawSource) ? rawSource : rawSource.replace(/\/+$/, '') + '/select';
+const SOURCE_SELECT = SOURCE_IS_FILE ? null
+  : (/\/(select|search)$/.test(rawSource) ? rawSource : rawSource.replace(/\/+$/, '') + '/select');
 const TARGET_BASE   = rawTarget.replace(/\/+$/, '');
 const TARGET_SELECT = TARGET_BASE + '/select';
 const TARGET_UPDATE = TARGET_BASE + '/update';
@@ -110,6 +124,52 @@ async function scanSource(hashSet) {
   return { contributing, scanned };
 }
 
+// 2b. same as scanSource, but reading a backup file instead of a core. Kept deliberately separate
+//     so the core path is untouched, and sharing the hash-filter logic below.
+function keptHashes(d, hashSet) {
+  const vals = Array.isArray(d.saved_search) ? d.saved_search : (d.saved_search != null ? [d.saved_search] : []);
+  return [...new Set(vals.map(Number).filter(h => !Number.isNaN(h) && hashSet.has(h)))];
+}
+
+async function scanSourceFile(hashSet) {
+  const fs = require('fs');
+  const text = fs.readFileSync(SOURCE_FILE, 'utf8');
+  let docs, declared = null;
+  let parsed = null;
+  try { parsed = JSON.parse(text); } catch (_) { /* fall through to JSONL */ }
+  if (parsed && Array.isArray(parsed)) {
+    docs = parsed;
+  } else if (parsed && parsed.response && Array.isArray(parsed.response.docs)) {
+    docs = parsed.response.docs;
+    declared = parsed.response.numFound;
+  } else if (parsed) {
+    throw new Error('unrecognised backup shape: expected a Solr response envelope or an array of {id, saved_search}');
+  } else {
+    docs = text.split('\n').filter(l => l.trim()).map((l, i) => {
+      try { return JSON.parse(l); } catch (e) { throw new Error(`backup line ${i + 1} is not JSON and the file is not a JSON document either`); }
+    });
+  }
+
+  // A truncated export restores silently and incompletely — the exact failure this whole script
+  // exists to clean up after. Refuse rather than half-restore.
+  if (declared !== null && declared !== docs.length) {
+    throw new Error(`backup is incomplete: numFound ${declared} but only ${docs.length} docs present — re-export with a larger rows= value`);
+  }
+
+  const contributing = new Map();
+  let scanned = 0, untagged = 0;
+  for (const d of docs) {
+    if (!d || typeof d.id !== 'string') throw new Error('every backup doc needs a string id and a saved_search value');
+    scanned++;
+    const kept = keptHashes(d, hashSet);
+    if (kept.length) contributing.set(d.id, kept);
+    else if (!d.saved_search) untagged++;
+  }
+  if (untagged) console.error(`  note: ${untagged} backup docs carry no saved_search value`);
+  console.error(`  read ${scanned} docs from ${SOURCE_FILE}`);
+  return { contributing, scanned };
+}
+
 // 3. which of these ids actually exist in the NEW core (an atomic update on a missing id would
 //    create an orphan partial doc). {!terms} in the POST body scales past URL length limits.
 // {!terms} is UNANALYZED — it matches raw strings against the indexed terms, so this is only correct
@@ -132,15 +192,15 @@ async function existingInTarget(ids) {
 
 (async () => {
   console.error(`MONGO_URL = ${MONGO_URL}`);
-  console.error(`SOURCE    = ${SOURCE_SELECT}`);
+  console.error(`SOURCE    = ${SOURCE_IS_FILE ? SOURCE_FILE + '   (backup file)' : SOURCE_SELECT}`);
   console.error(`TARGET    = ${TARGET_UPDATE}${DRY_RUN ? '   (DRY RUN — no writes)' : ''}`);
 
   const hashSet = await loadHashSet();
   console.error(`hash map: ${hashSet.size} distinct saved-list hashes in genelists`);
   if (!hashSet.size) { console.error('empty hash map — nothing to sync'); process.exit(0); }
 
-  const { contributing, scanned } = await scanSource(hashSet);
-  console.error(`old core: scanned ${scanned} saved_search docs; ${contributing.size} carry an in-map hash`);
+  const { contributing, scanned } = SOURCE_IS_FILE ? await scanSourceFile(hashSet) : await scanSource(hashSet);
+  console.error(`${SOURCE_IS_FILE ? 'backup' : 'old core'}: scanned ${scanned} saved_search docs; ${contributing.size} carry an in-map hash`);
   if (!contributing.size) { console.error('no genes to update'); process.exit(0); }
 
   const ids = [...contributing.keys()];
