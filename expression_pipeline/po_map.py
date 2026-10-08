@@ -9,13 +9,16 @@ PO_TO_ORGAN = {
  9006: "shoot", 20033: "shoot", 1901: "shoot",                       # incl coleoptile, aerial part
  # --- leaf (incl cell types & appendages) ---
  25034: "leaf", 20103: "leaf", 20040: "leaf", 25142: "leaf", 6012: "leaf",
+ 20039: "leaf",                                                       # leaf lamina (JGI leaf blades)
  20104: "leaf", 5645: "leaf", 6070: "leaf", 6023: "leaf", 20038: "leaf",  # petiole
  # --- stem ---
  9047: "stem", 20142: "stem", 3024: "stem",                          # incl stolon
+ 9053: "stem",                                                       # peduncle
  # --- meristem ---
  229: "meristem", 37: "meristem", 6079: "meristem",                  # floral/shoot apex/shoot meristem
  # --- inflorescence ---
  9049: "inflorescence", 20136: "inflorescence", 20126: "inflorescence",
+ 30123: "inflorescence",                                             # panicle inflorescence
  1690: "inflorescence", 9051: "inflorescence",
  # --- flower & floral organs ---
  9046: "flower", 9030: "flower", 56: "flower", 6488: "flower", 20003: "flower",
@@ -61,12 +64,15 @@ SUBSTR_FALLBACK = [
  ("cotyledon", "cotyledon"),
  ("tuber", "tuber"),
  ("caryopsis", "seed"),
+ # NB deliberately NO bare ("seed","seed") rule: it would swallow "seedling aerial portion",
+ # "etiolated seedling", "seed trace" etc. Seed samples are identified by PO:0009010 above.
  ("axis", "embryo"), ("suspensor", "embryo"), ("embryo", "embryo"),
  ("aleurone", "endosperm"), ("pericarp", "pericarp"), ("endosperm", "endosperm"),
  ("silk", "flower"), ("nucellus", "flower"), ("ovule", "flower"),
  ("panicle", "inflorescence"), ("spikelet", "inflorescence"), ("tassel", "inflorescence"),
  ("ear", "inflorescence"),
- ("internode", "stem"),
+ ("internode", "stem"), ("peduncle", "stem"),
+ ("sheath", "leaf"), ("whorl", "shoot"),
  ("pollen", "anther_pollen"), ("anther", "anther_pollen"),
  ("leaf", "leaf"), ("root", "root"), ("stem", "stem"), ("shoot", "shoot"),
 ]
