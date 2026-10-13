@@ -170,6 +170,20 @@ collections.expression.mongoCollection().then(function(atlas) {
               }
             }
         
+            // The crop cultivar tree sets. Field names match the mongo homology keys exactly so
+            // the two sides cannot drift. A gene may carry several at once -- a wheat cultivar
+            // gene is in both the default plants tree and the wheat_cultivars tree -- so these are
+            // additive, and an absent field simply means the gene is not in that set.
+            ['barley', 'oat', 'wheat', 'rice'].forEach(function (set) {
+              if (mongo.homology[set]) {
+                solr[set] = mongo.homology[set].id;
+                solr[set + '_root_taxon_id'] = mongo.homology[set].root_taxon_id;
+              }
+            });
+
+            // Left as it was: pan-homology trees are not loaded, so homology.pan_tree is never
+            // written. Kept rather than removed because it predates this change and was already
+            // unpopulated, so deleting it would be churn for no gain.
             if (mongo.homology.pan_tree) {
               solr.pan_tree = mongo.homology.pan_tree.id;
               solr.pan_tree_root_taxon_id = mongo.homology.pan_tree.root_taxon_id;

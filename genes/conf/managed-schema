@@ -174,8 +174,16 @@
 
 <!-- additional fields for query/faceting -->
    <field name="gene_tree" type="string" indexed="true" stored="true" multiValued="false"/>
+   <field name="barley" type="string" indexed="true" stored="true" multiValued="false"/>
+   <field name="oat" type="string" indexed="true" stored="true" multiValued="false"/>
+   <field name="wheat" type="string" indexed="true" stored="true" multiValued="false"/>
+   <field name="rice" type="string" indexed="true" stored="true" multiValued="false"/>
    <field name="pan_tree" type="string" indexed="true" stored="true" multiValued="false"/>
    <field name="gene_tree_root_taxon_id" type="pint" indexed="true" stored="true" multiValued="false"/>
+   <field name="barley_root_taxon_id" type="pint" indexed="true" stored="true" multiValued="false"/>
+   <field name="oat_root_taxon_id" type="pint" indexed="true" stored="true" multiValued="false"/>
+   <field name="wheat_root_taxon_id" type="pint" indexed="true" stored="true" multiValued="false"/>
+   <field name="rice_root_taxon_id" type="pint" indexed="true" stored="true" multiValued="false"/>
    <field name="pan_tree_root_taxon_id" type="pint" indexed="true" stored="true" multiValued="false"/>
 
 <!-- interpro domain architecture field -->
