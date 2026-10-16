@@ -23,13 +23,43 @@ The scorer consumes a flat "doc" (the same shape the solr /search API returned):
 flatten_expr() builds those fields from a mongo expression document (mongo2solr does the
 exact same flattening when it writes the solr core, so the two stay consistent).
 """
-import json, os, subprocess, tempfile
+import json, os, subprocess, sys, tempfile
 
 MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
 MONGO_DB = os.environ.get("MONGO_DB", "sorghum11")
 # where to spool mongosh output (see _stream); defaults next to this file (on /usr/local,
 # ample) rather than /tmp which may be a small root fs.
 SPOOL_DIR = os.environ.get("MONGO_SPOOL_DIR") or os.path.dirname(os.path.abspath(__file__))
+
+# Which experiment SOURCES feed the scoring pipeline, as a comma-separated allowlist matched
+# against experiments.source. Default "EBI". Empty means no filtering (every source included).
+#
+# Filtering on source rather than on the accession string is deliberate: it is semantic, it makes
+# no assumption about how a source names its accessions, and every experiments doc carries the
+# field (466/466 are source:"EBI", none missing). An unknown or missing source is EXCLUDED and
+# logged -- fail-safe, so a new non-EBI source has to be opted in rather than silently scored.
+#
+# WHY THE JGI/MULLET SORGHUM STUDY (source:"JGI") IS NOT IN THE DEFAULT ALLOWLIST -- two
+# independent reasons, both written up in gramene-mongodb/jgi/README.md:
+#
+#  1. Its group values are MEANS, not medians. GXA's -tpms.tsv gives a five-number summary per
+#     assay group and atlas/parseBaseline.js takes five[2], the median; the JGI matrix arrives
+#     pre-aggregated by the submitter as one mean TPM per group, and library-level values never
+#     reach us. expr_lib then takes a median across group values per organ, so one organ vector
+#     would mix medians (GXA) with means (JGI). Measured over 1.9M non-trivial GXA assay-group
+#     cells, right skew beats left 48.5%/31.4% and 46.3%/33.4%, so those means sit above where
+#     medians would be in most cells: a consistent upward bias.
+#
+#  2. It would supply mostly ONE organ. 56 of its 99 groups are stem; sorghum has 5 stem samples
+#     today and would have 61. The bias above would land almost entirely on `stem`, the one organ
+#     whose median would then be set by a single lab under one set of growth conditions. tau and
+#     the level bands are computed from exactly those per-organ values.
+#
+# To include it once the submitter supplies group medians (or per-library TPMs we can median
+# ourselves): EXPR_SOURCES="EBI,JGI" make 58_expression_attributes
+EXPR_SOURCES = tuple(
+    v.strip() for v in os.environ.get("EXPR_SOURCES", "EBI").split(",") if v.strip()
+)
 
 
 def _target():
@@ -148,7 +178,26 @@ def _experiments_for_genome(system_name):
           "  {$group:{_id:'$k.k'}}"
           "],{allowDiskUse:true}).forEach(function(d){print(JSON.stringify({e:d._id}));});"
           ) % json.dumps(system_name)
-    return [o["e"] for o in _stream(js)]
+    exps = [o["e"] for o in _stream(js)]
+    # Filtered HERE because this is the one chokepoint: experiments_for_genome() and
+    # load_assays() both derive from it, so neither can drift out of step with the other.
+    if EXPR_SOURCES and exps:
+        js2 = ("var exps=%s;"
+               "db.experiments.find({_id:{$in:exps}},{source:1}).forEach(function(e){"
+               "print(JSON.stringify({e:e._id,s:e.source||''}));});"
+               ) % json.dumps(exps)
+        src = {o["e"]: o["s"] for o in _stream(js2)}
+        kept = [e for e in exps if src.get(e, "") in EXPR_SOURCES]
+        if len(kept) != len(exps):
+            dropped = sorted(set(exps) - set(kept))
+            sys.stderr.write("%s: excluding %d of %d experiment(s) from scoring "
+                             "(EXPR_SOURCES=%s): %s\n"
+                             % (system_name, len(dropped), len(exps),
+                                ",".join(EXPR_SOURCES),
+                                ", ".join("%s[source=%s]" % (e, src.get(e) or "<none>")
+                                          for e in dropped)))
+        exps = kept
+    return exps
 
 
 def load_assays(system_name):
