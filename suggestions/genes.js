@@ -44,6 +44,33 @@ function progress(msg) {
   console.error('[' + Math.round((Date.now() - t_start) / 1000) + 's] ' + msg);
 }
 
+// A 4.49 GB genes.json was produced on 2026-10-18 with no closing ']' and NO error of any kind:
+// the process printed the gene_tree pivot URL and exited 0. The cause is structural -- q-io/http
+// is built on the Q promise library, and a throw inside a Q .then() produces a rejected Q promise
+// that Q keeps to itself. Node never sees it, so there is no unhandledRejection, no stack, and no
+// non-zero exit; the event loop simply drains and the process leaves successfully with a truncated
+// file. The stage then reports "missing/truncated" with nothing to act on.
+//
+// So: make silent truncation impossible. `finished` is set only after ']' is written, and the exit
+// hook flushes whatever is buffered and fails loudly if we are leaving early. Every Q chain below
+// also gets an explicit .catch, because Q will not surface one for us.
+var finished = false;
+process.on('exit', function (code) {
+  try { out_flush(); } catch (e) { /* nothing useful left to do while exiting */ }
+  if (!finished) {
+    console.error('genes.js EXITED WITHOUT FINISHING (code ' + code + '). The output is truncated: ' +
+                  'no closing "]" was written. Last phase reached is the final [Ns] line above.');
+    if (code === 0) { process.exitCode = 1; }
+  }
+});
+function qfail(where) {
+  return function (e) {
+    out_flush();
+    console.error('genes.js FAILED in ' + where + ': ' + (e && e.stack || e));
+    process.exit(1);
+  };
+}
+
 function getTaxa(query) {
   var url = genesURL + '/query?q='+query+'&rows=0&facet=true&facet.field=taxon_id&facet.limit=-1&facet.mincount=1&json.nl=map';
   var res = request('GET',url);
@@ -213,9 +240,15 @@ collections.genes.mongoCollection().then(async function(collection) {
           + '&facet.pivot=gene_tree,taxon_id';
           console.error(url);
           http.read(url).then(function(data) {
-            JSON.parse(data).facet_counts.facet_pivot['gene_tree,taxon_id'].forEach(function(d) {
+            var gtPivot = JSON.parse(data).facet_counts.facet_pivot['gene_tree,taxon_id'];
+            if (!gtPivot) { throw new Error("no 'gene_tree,taxon_id' pivot in the facet response"); }
+            gtPivot.forEach(function(d) {
               var taxa = {ids:[],counts:[]};
-              d.pivot.forEach(function(p) {
+              // Guarded like the _terms handler above: an entry with no sub-pivot would throw a
+              // TypeError, and Q would swallow it, exiting 0 with a truncated file. Currently all
+              // 163,287 entries have one, but 1,963,995 of the 2,526,566 _terms entries do not,
+              // so the shape is clearly not guaranteed.
+              (d.pivot || []).forEach(function(p) {
                 taxa.ids.push(p.value);
                 taxa.counts.push(p.count);
               });
@@ -305,18 +338,18 @@ collections.genes.mongoCollection().then(async function(collection) {
               }
               out(']\n');
               out_flush();
+              finished = true;
               progress('done: ' + n + ' suggestion docs written');
-            });   // biotype
-          });     // gene_tree pivot
-        });       // _terms pivot
+            }).catch(qfail('biotype chain'));
+          }).catch(qfail('gene_tree pivot chain'));
+        }).catch(qfail('_terms pivot chain'));
     }             // (block that replaced the removed genetree callbacks)
   } catch (e) {
-    // The original swallowed nothing but also surfaced nothing: an error inside the streaming
-    // loop would have rejected silently and left a 0-byte genes.json, which is exactly the state
-    // the 20-hour run was mistaken for. Fail loudly instead.
+    // An error inside the streaming loop would otherwise reject silently and leave a 0-byte
+    // genes.json -- exactly the state the 20-hour run was mistaken for. Fail loudly instead.
     out_flush();
     console.error('genes.js FAILED: ' + (e && e.stack || e));
     process.exit(1);
   }
-});
+}).catch(qfail('mongo/genes setup'));
 
