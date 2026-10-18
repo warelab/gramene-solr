@@ -1,6 +1,46 @@
 #!/usr/bin/env node
 var collections = require('gramene-mongodb-config');
 var _ = require('lodash');
+var fs = require('fs');
+
+// OPTIONAL SIDE-OUTPUT: term -> taxon_id pairs, for suggestions/genes.js.
+//
+// genes.js used to recover _terms by faceting the genes SOLR core -- a 588s pivot plus one
+// unbounded facet per taxon (1083s for 267), to get back a field THIS script derived from mongo in
+// the first place. That round trip was also the only thing that ever failed: on 2026-10-18 the
+// gene_tree pivot's q-io promise never settled, the event loop drained, and the process exited 0
+// leaving a 4.49 GB genes.json with no closing ']' and no error -- Q keeps rejections to itself.
+//
+// Emitting the pairs HERE rather than re-deriving them in genes.js is deliberate. _terms is not a
+// simple union: it folds in name, id, synonyms, alt_id, description (unless "unknown") and the ids
+// of every xref whose db is absent from mongo.annotations, then removes the gene's own id -- and
+// name/synonyms/description each have their own upstream fixups. Re-implementing that elsewhere
+// would drift, and suggestions would start offering terms the genes core cannot match.
+//
+// Off unless SOLR_TERMS_TSV is set, so the normal stage-60 run is byte-for-byte unchanged.
+// Format: JSON.stringify(term) TAB taxon_id  -- the term is JSON-encoded because descriptions and
+// xref ids can contain tabs, quotes and non-ASCII, and because identical terms must encode
+// identically for a later sort to group them.
+var TERMS_TSV = process.env.SOLR_TERMS_TSV || '';
+var terms_fd = TERMS_TSV ? fs.openSync(TERMS_TSV, 'w') : -1;
+var terms_buf = [], terms_len = 0, terms_rows = 0;
+function terms_emit(termList, taxon_id) {
+  if (terms_fd < 0) { return; }
+  for (var i = 0; i < termList.length; i++) {
+    var t = termList[i];
+    if (typeof t !== 'string' || !t.length) { continue; }
+    terms_buf.push(JSON.stringify(t)); terms_buf.push('\t'); terms_buf.push(String(taxon_id)); terms_buf.push('\n');
+    terms_len += 1; terms_rows++;
+    if (terms_len >= 200000) { fs.writeSync(terms_fd, terms_buf.join('')); terms_buf = []; terms_len = 0; }
+  }
+}
+function terms_close() {
+  if (terms_fd < 0) { return; }
+  if (terms_len) { fs.writeSync(terms_fd, terms_buf.join('')); terms_buf = []; terms_len = 0; }
+  fs.closeSync(terms_fd);
+  console.error('SOLR_TERMS_TSV: wrote ' + terms_rows + ' term/taxon rows to ' + TERMS_TSV);
+}
+process.on('exit', terms_close);
 
 function get_rep(c) {
   var rep = {
@@ -327,6 +367,8 @@ collections.genes.mongoCollection().then(function(genesCol) {
       // get we don't want id in _terms
       delete uniq[lcId];
       solr._terms = Object.keys(uniq).map(function(k){return uniq[k]});
+      // side channel for suggestions/genes.js -- same array, same moment, so it cannot drift
+      terms_emit(solr._terms, solr.taxon_id);
   
       // add ancestors fields from the annotations section
       // and text of annotations (except taxonomy)
