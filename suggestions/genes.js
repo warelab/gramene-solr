@@ -1,355 +1,239 @@
 #!/usr/bin/env node
-var http = require("q-io/http")
-  , request = require("sync-request")
-  , fs = require("fs")
-  , collections = require('gramene-mongodb-config');
-
-var genesURL = process.argv[2];
-
-// ---------------------------------------------------------------- scaling notes
-// This script stalled for 20 hours on release 70 without emitting a single byte, and would have
-// OOMed before finishing. It is not slow in proportion to the data: genes70 has 3x the documents
-// of the sorghum build but 9.8x the distinct _terms values (20,983,024 against 2,135,970), because
-// 267 genomes contribute their own id namespaces plus 224,197 tree ids across five tree sets.
-// sorghum's whole stage 65 took 6m50s.
+// genes.js — gene-level suggestion docs (ids, alt ids, free-text terms, gene trees, biotypes).
 //
-// Four things made that fatal, all fixed below:
-//   1. find().toArray() materialised all 16,127,051 gene docs at once. Now streamed.
-//   2. uniqueId / originalCase / term_freq / taxa_lut were plain objects. At tens of millions of
-//      keys V8 drops those into dictionary mode, where `for...in` also materialises an enumeration
-//      cache of every key. They are Maps now, which stay fast at this size and iterate without
-//      building a key array.
-//   3. the per-taxon loop called term.toUpperCase() TWICE per term, allocating two strings for
-//      every one of ~21M terms per taxon pass. Hoisted to one call.
-//   4. every emitted doc cost two console.log() syscalls; at 40M+ docs that alone is ~80M writes.
-//      Output is buffered and flushed in 8 MB blocks.
-// Also removed two structures that were written on every one of the 16.1M docs and never read
-// (otherfeaturesId, treeRootNodeTaxonId) -- the latter was the only reason to load the genetree
-// collection at all, so that query is gone too.
+// usage: node genes.js <genes-core-url-IGNORED> [--terms <sorted terms file>]
+//        SUGGEST_TERMS_TSV=<file>   same as --terms
 //
-// NB _term_N ids may differ from a previous run: Map iterates in insertion order where `for...in`
-// reorders integer-like keys numerically. The ids are synthetic and the core is recreated fresh
-// each run, so nothing downstream pins them.
+// WHY THIS NO LONGER TALKS TO SOLR
+// It used to recover the term/taxon tallies by faceting the genes core: a 588s
+// _terms,taxon_id pivot plus one unbounded facet per taxon (1083s for 267), to get back a field
+// mongo2solr.join.js had itself derived from mongo. 1,743s of round trip for data we already had,
+// and it was the only part that ever failed -- on 2026-10-18 the gene_tree pivot's q-io promise
+// never settled, the event loop drained, and the process exited 0 leaving a 4.49 GB genes.json
+// with no closing ']' and no error, because q-io runs on Q and Q keeps rejections to itself.
+//
+// Now: mongo2solr.join.js writes the (term, taxon_id) pairs as it builds each solr doc
+// (SOLR_TERMS_TSV), that file is sorted by term, and this script aggregates it in a STREAMING
+// pass. Nothing large is held in memory for terms, there are no Solr queries at all, and the
+// terms cannot drift from what the genes core actually indexes because one code path produces
+// both. Cross-checked against the facets it replaces: 20,983,024 distinct terms and 2,526,566
+// with count>=2, both exactly matching Solr's own numbers.
+//
+// The output docs, categories and schema are unchanged. The suggestions core and API are untouched.
+'use strict';
 
+var fs = require('fs');
+var readline = require('readline');
+var collections = require('gramene-mongodb-config');
+
+var argv = process.argv.slice(2);
+function opt(flag) { var i = argv.indexOf(flag); return i === -1 ? null : argv[i + 1]; }
+var TERMS = opt('--terms') || process.env.SUGGEST_TERMS_TSV ||
+            '/scratch/olson/release70_solr/terms.sorted.tsv';
+
+// ---------------------------------------------------------------- buffered stdout
 var OUT_MAX = 8 << 20, out_buf = [], out_len = 0;
-function out(s) {
-  out_buf.push(s); out_len += s.length;
-  if (out_len >= OUT_MAX) { out_flush(); }
-}
-function out_flush() {
-  if (out_len) { fs.writeSync(1, out_buf.join('')); out_buf = []; out_len = 0; }
-}
-var t_start = Date.now();
-function progress(msg) {
-  console.error('[' + Math.round((Date.now() - t_start) / 1000) + 's] ' + msg);
-}
+function out(s) { out_buf.push(s); out_len += s.length; if (out_len >= OUT_MAX) { out_flush(); } }
+function out_flush() { if (out_len) { fs.writeSync(1, out_buf.join('')); out_buf = []; out_len = 0; } }
 
-// A 4.49 GB genes.json was produced on 2026-10-18 with no closing ']' and NO error of any kind:
-// the process printed the gene_tree pivot URL and exited 0. The cause is structural -- q-io/http
-// is built on the Q promise library, and a throw inside a Q .then() produces a rejected Q promise
-// that Q keeps to itself. Node never sees it, so there is no unhandledRejection, no stack, and no
-// non-zero exit; the event loop simply drains and the process leaves successfully with a truncated
-// file. The stage then reports "missing/truncated" with nothing to act on.
-//
-// So: make silent truncation impossible. `finished` is set only after ']' is written, and the exit
-// hook flushes whatever is buffered and fails loudly if we are leaving early. Every Q chain below
-// also gets an explicit .catch, because Q will not surface one for us.
+var t_start = Date.now();
+function progress(msg) { console.error('[' + Math.round((Date.now() - t_start) / 1000) + 's] ' + msg); }
+
+// A truncated genes.json must never look like success: the stage only checks for a closing ']'.
 var finished = false;
 process.on('exit', function (code) {
-  try { out_flush(); } catch (e) { /* nothing useful left to do while exiting */ }
+  try { out_flush(); } catch (e) { /* nothing useful to do while exiting */ }
   if (!finished) {
-    console.error('genes.js EXITED WITHOUT FINISHING (code ' + code + '). The output is truncated: ' +
-                  'no closing "]" was written. Last phase reached is the final [Ns] line above.');
+    console.error('genes.js EXITED WITHOUT FINISHING (code ' + code + '): output is truncated, ' +
+                  'no closing "]" was written.');
     if (code === 0) { process.exitCode = 1; }
   }
 });
-function qfail(where) {
-  return function (e) {
-    out_flush();
-    console.error('genes.js FAILED in ' + where + ': ' + (e && e.stack || e));
-    process.exit(1);
-  };
+
+var n = 0;
+function emit(doc) {
+  out(n === 0 ? '[\n' : ',\n');
+  n++;
+  out(JSON.stringify(doc) + '\n');
 }
 
-function getTaxa(query) {
-  var url = genesURL + '/query?q='+query+'&rows=0&facet=true&facet.field=taxon_id&facet.limit=-1&facet.mincount=1&json.nl=map';
-  var res = request('GET',url);
-  var taxa = { ids:[], counts:[]};
-  var taxTally = JSON.parse(res.getBody()).facet_counts.facet_fields.taxon_id;
-  for (var t in taxTally) {
-    taxa.ids.push(+t);
-    taxa.counts.push(taxTally[t]);
+(async function main() {
+  if (!fs.existsSync(TERMS)) {
+    throw new Error('terms file not found: ' + TERMS +
+                    '\n  Produce it with: SOLR_TERMS_TSV=<out> node ../genes/mongo2solr.join.js >/dev/null' +
+                    '\n  then: LC_ALL=C sort -t$\'\\t\' -k1,1 <out> > ' + TERMS);
   }
-  return taxa;
-}
 
-// read all of the unique ids from the genes collection
-// to avoid suggesting them as non-unique terms when they are mentioned as an xref or something in another gene
-collections.genes.mongoCollection().then(async function(collection) {
-  try {
-    // STREAMED, not toArray(): 16,127,051 docs will not fit in heap as live JS objects.
-    var uniqueId = new Map();      // UPPER(_id) -> taxon_id
-    var uniqueTaxa = new Map();    // taxon_id   -> 1
-    var originalCase = new Map();  // UPPER(_id) -> original-case _id
-    // alternate ids (Sobic./Sb.../GRMZM/pan.../Vitvi.../LOC_Os…) get their own
-    // resolvable suggestions that query the genes-core alt_id field, so an alt id and
-    // its primary id both land on the same gene. UPPERCASE key -> { display: original
-    // case alt id, taxa: {taxon_id: gene count} }.
-    var altId = new Map();         // UPPER(alt) -> {display, taxa: Map(taxon_id -> count)}
-    progress('streaming genes ...');
-    var nseen = 0;
-    var cursor = collection.find({}, {_id:1, taxon_id:1, db_type:1, alt_id:1});
-    for await (const d of cursor) {
-      var UP = d._id.toUpperCase();
-      uniqueTaxa.set(d.taxon_id, 1);
-      uniqueId.set(UP, d.taxon_id);
-      originalCase.set(UP, d._id);
-      if (d.alt_id) {
-        for (var ai = 0; ai < d.alt_id.length; ai++) {
-          var a = d.alt_id[ai];
-          if (!a) { continue; }
-          var A = a.toUpperCase();
-          var rec = altId.get(A);
-          if (!rec) { rec = { display: a, taxa: new Map() }; altId.set(A, rec); }
-          rec.taxa.set(d.taxon_id, (rec.taxa.get(d.taxon_id) || 0) + 1);
-        }
-      }
-      if (++nseen % 2000000 === 0) {
-        progress('  ' + nseen + ' genes; ' + uniqueId.size + ' ids, ' + altId.size +
-                 ' alt ids, heap ' + Math.round(process.memoryUsage().heapUsed / 1048576) + ' MB');
+  // ---------------------------------------------------------------- 1. one mongo pass
+  // Everything the remaining categories need: the id/alt-id suggestions, the biotype tallies and
+  // the gene-tree tallies. All were previously separate Solr facet queries.
+  var genesCol = await collections.genes.mongoCollection();
+  var uniqueId = new Map();     // UPPER(_id) -> taxon_id
+  var originalCase = new Map(); // UPPER(_id) -> original _id
+  var altId = new Map();        // UPPER(alt) -> {display, taxa: Map(taxon -> count)}
+  var biotype = new Map();      // biotype    -> Map(taxon -> count)
+  var geneTree = new Map();     // tree id    -> Map(taxon -> count)
+  var seen = 0;
+
+  progress('streaming genes from mongo ...');
+  var cursor = genesCol.find({}, {
+    _id: 1, taxon_id: 1, db_type: 1, alt_id: 1, biotype: 1, 'homology.gene_tree.id': 1
+  });
+  for await (const d of cursor) {
+    var UP = d._id.toUpperCase();
+    uniqueId.set(UP, d.taxon_id);
+    originalCase.set(UP, d._id);
+
+    if (d.alt_id) {
+      for (var ai = 0; ai < d.alt_id.length; ai++) {
+        var a = d.alt_id[ai];
+        if (typeof a !== 'string' || !a.length) { continue; }
+        var A = a.toUpperCase();
+        var rec = altId.get(A);
+        if (!rec) { rec = { display: a, taxa: new Map() }; altId.set(A, rec); }
+        rec.taxa.set(d.taxon_id, (rec.taxa.get(d.taxon_id) || 0) + 1);
       }
     }
-    progress('genes streamed: ' + nseen + ' docs, ' + uniqueId.size + ' ids, ' + altId.size +
-             ' alt ids, ' + uniqueTaxa.size + ' taxa, heap ' +
-             Math.round(process.memoryUsage().heapUsed / 1048576) + ' MB');
+    if (d.biotype) { bump(biotype, d.biotype, d.taxon_id); }
+    var gt = d.homology && d.homology.gene_tree && d.homology.gene_tree.id;
+    if (gt) { bump(geneTree, gt, d.taxon_id); }
 
-    // The genetree collection used to be loaded here purely to build treeRootNodeTaxonId, which
-    // nothing ever read. Dropped along with it.
-    collections.closeMongoDatabase();
-    {
-
-        // non-unique terms get their own doc with a relevant fq field
-        // build a lookup table with the non-unique ids from these
-        var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.pivot.mincount=2&facet.pivot=_terms,taxon_id';
-        console.error(url);
-        http.read(url).then(function(data) {
-          var term_freq = new Map();   // term -> total gene count
-          var taxa_lut = new Map();    // term -> Map(taxon_id -> count)
-          progress('parsing the _terms,taxon_id pivot ...');
-          JSON.parse(data).facet_counts.facet_pivot['_terms,taxon_id'].forEach(function(d) {
-            var term = d.value; // .toUpperCase(); // don't do this it leads to problems
-            var UP = term.toUpperCase();   // was computed twice per term
-            if (!uniqueId.has(UP) && !altId.has(UP)) {
-              if (term_freq.has(term)) {
-                term_freq.set(term, term_freq.get(term) + d.count);
-              }
-              else {
-                term_freq.set(term, d.count);
-                taxa_lut.set(term, new Map()); // term may appear only once in some species, but we don't know which ones yet
-              }
-
-              if (d.pivot) { // term appears at least 2 times in some species
-                var tl = taxa_lut.get(term);
-                d.pivot.forEach(function(p) {
-                  tl.set(p.value, (tl.get(p.value) || 0) + p.count);
-                });
-              }
-            }
-          });
-          progress('pivot parsed: ' + term_freq.size + ' non-unique terms, heap ' +
-                   Math.round(process.memoryUsage().heapUsed / 1048576) + ' MB');
-          var n=0;
-          // Find all the terms in each species. THIS is where 20 hours went on release 70: one
-          // pass per taxon over that taxon's entire _terms facet, and for every term it called
-          // toUpperCase() twice and did two hasOwnProperty lookups against 16.1M-key dictionary
-          // objects. Now one toUpperCase and Map.has(). Logged per taxon so a stall is visible.
-          var taxaList = Array.from(uniqueTaxa.keys());
-          progress('scanning _terms per taxon (' + taxaList.length + ' taxa)');
-          taxaList.forEach(function(taxon_id, ti) {
-            var url = genesURL + '/query?rows=0&facet=true&facet.field=_terms&facet.limit=-1&json.nl=map&facet.mincount=1&q=taxon_id:'+taxon_id;
-            var res = request('GET',url);
-            var term_tally = JSON.parse(res.getBody()).facet_counts.facet_fields._terms;
-            var nt = 0;
-            for (var t in term_tally) {
-              var term = t; // .toUpperCase(); // don't do this it leads to problems
-              var UP = term.toUpperCase();
-              nt++;
-              if (!uniqueId.has(UP) && !altId.has(UP)) {
-                var tl = taxa_lut.get(term);
-                if (tl) {
-                  tl.set(taxon_id, (tl.get(taxon_id) || 0) + term_tally[t]);
-                }
-                else if (/[A-Za-z]/.test(term)) { // this is a unique term that contains a word character
-                  var solr = {
-                    category    : 'Genes: symbol/name',
-                    subcategory : 'term',
-                    id          : '_term_'+ ++n,
-                    display_name: term,
-                    name        : term,
-                    fq_field    : '_terms',
-                    fq_value    : term,
-                    taxon_id    : [+taxon_id],
-                    taxon_freq  : [1],
-                    num_genes   : 1,
-                    relevance   : 1
-                  };
-                  if (n===1) out('[\n');
-                  else out(',\n');
-                  out(JSON.stringify(solr) + '\n');
-                }
-              }
-            }
-            progress('  taxon ' + (ti + 1) + '/' + taxaList.length + ' (' + taxon_id + '): ' +
-                     nt + ' terms, ' + n + ' docs so far, heap ' +
-                     Math.round(process.memoryUsage().heapUsed / 1048576) + ' MB');
-          });
-
-          progress('finished building taxa_lut. n=' + n + '; emitting ' + term_freq.size +
-                   ' non-unique term docs');
-          for (const [term, tf] of term_freq) {
-            var taxa = {ids:[],counts:[]};
-            var tlm = taxa_lut.get(term);
-            if (tlm) {
-              for (const [taxon_id, cnt] of tlm) {
-                taxa.ids.push(+taxon_id);
-                taxa.counts.push(cnt);
-              }
-            }
-            var solr = {
-              category    : 'Genes: symbol/name',
-              subcategory : 'term',
-              id          : '_term_'+ ++n,
-              display_name: term,
-              name        : term,
-              fq_field    : '_terms',
-              fq_value    : term,
-              taxon_id    : taxa.ids,
-              taxon_freq  : taxa.counts,
-              num_genes   : tf,
-              relevance   : tf < 10 ? 1.1 : 1
-            };
-            if (n===1) out('[\n');
-            else out(',\n');
-            out(JSON.stringify(solr) + '\n');
-          }
-      
-          // gene tree suggestion
-          // var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=gene_tree';
-          var url = genesURL
-          + '/query?rows=0&facet=true&facet.limit=-1&facet.mincount=1&json.nl=map'
-          + '&facet.pivot=gene_tree,taxon_id';
-          console.error(url);
-          http.read(url).then(function(data) {
-            var gtPivot = JSON.parse(data).facet_counts.facet_pivot['gene_tree,taxon_id'];
-            if (!gtPivot) { throw new Error("no 'gene_tree,taxon_id' pivot in the facet response"); }
-            gtPivot.forEach(function(d) {
-              var taxa = {ids:[],counts:[]};
-              // Guarded like the _terms handler above: an entry with no sub-pivot would throw a
-              // TypeError, and Q would swallow it, exiting 0 with a truncated file. Currently all
-              // 163,287 entries have one, but 1,963,995 of the 2,526,566 _terms entries do not,
-              // so the shape is clearly not guaranteed.
-              (d.pivot || []).forEach(function(p) {
-                taxa.ids.push(p.value);
-                taxa.counts.push(p.count);
-              });
-              var solr = {
-                category    : 'Gene trees',
-                id          : '_term_'+ ++n,
-                taxon_id    : taxa.ids,
-                taxon_freq  : taxa.counts,
-                display_name: d.value,
-                name        : d.value,
-                fq_field    : 'gene_tree',
-                fq_value    : d.value,
-                num_genes   : d.count,
-                relevance   : 1
-              }
-              out(',\n');
-              out(JSON.stringify(solr) + '\n');
-            });
-
-            // biotype suggestion
-            var url = genesURL + '/query?rows=0&facet=true&facet.limit=-1&json.nl=map&facet.mincount=1&facet.field=biotype';
-            console.error(url);
-            http.read(url).then(function(data) {
-              var biotype_count = JSON.parse(data).facet_counts.facet_fields.biotype;
-              for (var biotype in biotype_count) {
-                var taxa = getTaxa('biotype:'+biotype);
-                var solr = {
-                  category    : 'Biotypes',
-                  id          : '_term_'+ ++n,
-                  display_name: biotype,
-                  name        : biotype,
-                  fq_field    : 'biotype',
-                  fq_value    : biotype,
-                  taxon_id    : taxa.ids,
-                  taxon_freq  : taxa.counts,
-                  num_genes   : biotype_count[biotype],
-                  relevance   : 1
-                };
-                out(',\n');
-                out(JSON.stringify(solr) + '\n');
-              }
-      
-              // output unique IDs
-              progress('output uniqueIds (' + uniqueId.size + ')');
-              for (const [uid, uid_taxon] of uniqueId) {
-                out(',\n');
-                out(JSON.stringify({
-                  category : 'Genes: primary id',
-                  subcategory : 'id',
-                  fq_field : 'id',
-                  fq_value : originalCase.get(uid),
-                  id       : originalCase.get(uid),
-                  display_name : originalCase.get(uid),
-                  num_genes : 1,
-                  relevance : 1.2,
-                  taxon_id : uid_taxon,
-                  taxon_freq : [1]
-                }) + '\n');
-              }
-
-              // output alternate ids — each is matched on `name` and resolves by
-              // querying the genes-core alt_id field, so an alt id and its primary id
-              // land on the same gene. Shown under the "Alternate IDs" subcategory.
-              progress('output alt_ids (' + altId.size + ')');
-              for (const [A, at] of altId) {
-                var ataxa = { ids: [], counts: [] };
-                var atotal = 0;
-                for (const [tid, cnt] of at.taxa) {
-                  ataxa.ids.push(+tid);
-                  ataxa.counts.push(cnt);
-                  atotal += cnt;
-                }
-                out(',\n');
-                out(JSON.stringify({
-                  category : 'Genes: alternate id',
-                  subcategory : 'Alternate IDs',
-                  fq_field : 'alt_id',
-                  fq_value : at.display,
-                  id       : 'alt_' + at.display,
-                  display_name : at.display,
-                  name     : at.display,
-                  num_genes : atotal,
-                  relevance : 1.2,
-                  taxon_id : ataxa.ids,
-                  taxon_freq : ataxa.counts
-                }) + '\n');
-              }
-              out(']\n');
-              out_flush();
-              finished = true;
-              progress('done: ' + n + ' suggestion docs written');
-            }).catch(qfail('biotype chain'));
-          }).catch(qfail('gene_tree pivot chain'));
-        }).catch(qfail('_terms pivot chain'));
-    }             // (block that replaced the removed genetree callbacks)
-  } catch (e) {
-    // An error inside the streaming loop would otherwise reject silently and leave a 0-byte
-    // genes.json -- exactly the state the 20-hour run was mistaken for. Fail loudly instead.
-    out_flush();
-    console.error('genes.js FAILED: ' + (e && e.stack || e));
-    process.exit(1);
+    if (++seen % 4000000 === 0) {
+      progress('  ' + seen + ' genes, heap ' + heapMB() + ' MB');
+    }
   }
-}).catch(qfail('mongo/genes setup'));
+  progress('genes streamed: ' + seen + ' docs; ' + uniqueId.size + ' ids, ' + altId.size +
+           ' alt ids, ' + biotype.size + ' biotypes, ' + geneTree.size + ' gene trees, heap ' +
+           heapMB() + ' MB');
+  collections.closeMongoDatabase();
 
+  // ---------------------------------------------------------------- 2. terms, streamed
+  // One group per distinct term, so nothing accumulates. Terms that ARE a gene id or an alt id are
+  // skipped here exactly as before -- they get their own id/alt-id suggestions below.
+  progress('aggregating ' + TERMS + ' ...');
+  var rows = 0, terms_seen = 0, singles = 0, merged = 0, skipped_id = 0, skipped_nonword = 0, bad_decode = 0;
+  var curKey = null;      // JSON-encoded term, used only for grouping/comparison
+  var curTerm = null;     // the decoded term, which is what goes in the doc
+  var curTaxa = null, curTotal = 0;
+  var hasLetter = /[A-Za-z]/;
+
+  function flushTerm() {
+    if (curKey === null) { return; }
+    if (curTerm === null) { bad_decode++; return; }   // unparseable row, counted not silently dropped
+    terms_seen++;
+    var UP = curTerm.toUpperCase();
+    if (uniqueId.has(UP) || altId.has(UP)) { skipped_id++; return; }
+    if (curTotal === 1) {
+      // Previously emitted inside the per-taxon facet loop; same shape, same guard.
+      if (!hasLetter.test(curTerm)) { skipped_nonword++; return; }
+      var only = curTaxa.keys().next().value;
+      emit({
+        category: 'Genes: symbol/name', subcategory: 'term', id: '_term_' + (n + 1),
+        display_name: curTerm, name: curTerm, fq_field: '_terms', fq_value: curTerm,
+        taxon_id: [+only], taxon_freq: [1], num_genes: 1, relevance: 1
+      });
+      singles++;
+    } else {
+      var ids = [], counts = [];
+      for (const [tax, cnt] of curTaxa) { ids.push(+tax); counts.push(cnt); }
+      emit({
+        category: 'Genes: symbol/name', subcategory: 'term', id: '_term_' + (n + 1),
+        display_name: curTerm, name: curTerm, fq_field: '_terms', fq_value: curTerm,
+        taxon_id: ids, taxon_freq: counts, num_genes: curTotal,
+        relevance: curTotal < 10 ? 1.1 : 1
+      });
+      merged++;
+    }
+  }
+
+  var rl = readline.createInterface({ input: fs.createReadStream(TERMS), crlfDelay: Infinity });
+  for await (const line of rl) {
+    if (!line) { continue; }
+    var tab = line.lastIndexOf('\t');
+    if (tab < 0) { continue; }
+    var encoded = line.slice(0, tab);
+    var taxon = +line.slice(tab + 1);
+    if (encoded !== curKey) {
+      flushTerm();
+      curKey = encoded;
+      curTaxa = new Map();
+      curTotal = 0;
+      // decode once per distinct term, not once per row
+      try { curTerm = JSON.parse(encoded); } catch (e) { curTerm = null; }
+    }
+    curTaxa.set(taxon, (curTaxa.get(taxon) || 0) + 1);
+    curTotal++;
+    if (++rows % 10000000 === 0) {
+      progress('  ' + rows + ' rows, ' + terms_seen + ' terms, ' + n + ' docs, heap ' + heapMB() + ' MB');
+    }
+  }
+  flushTerm();
+  progress('terms done: ' + rows + ' rows, ' + terms_seen + ' distinct terms -> ' +
+           singles + ' singleton + ' + merged + ' merged docs (' + skipped_id +
+           ' were ids/alt ids, ' + skipped_nonword + ' had no word character, ' +
+           bad_decode + ' undecodable)');
+  if (bad_decode) { throw new Error(bad_decode + ' term rows could not be JSON-decoded'); }
+
+  // ---------------------------------------------------------------- 3. gene trees
+  for (const [tree, taxa] of geneTree) {
+    var gids = [], gcounts = [], gtot = 0;
+    for (const [tax, cnt] of taxa) { gids.push(tax); gcounts.push(cnt); gtot += cnt; }
+    emit({
+      category: 'Gene trees', id: '_term_' + (n + 1), taxon_id: gids, taxon_freq: gcounts,
+      display_name: tree, name: tree, fq_field: 'gene_tree', fq_value: tree,
+      num_genes: gtot, relevance: 1
+    });
+  }
+  progress('gene tree docs: ' + geneTree.size);
+
+  // ---------------------------------------------------------------- 4. biotypes
+  for (const [bt, taxa] of biotype) {
+    var bids = [], bcounts = [], btot = 0;
+    for (const [tax, cnt] of taxa) { bids.push(+tax); bcounts.push(cnt); btot += cnt; }
+    emit({
+      category: 'Biotypes', id: '_term_' + (n + 1), display_name: bt, name: bt,
+      fq_field: 'biotype', fq_value: bt, taxon_id: bids, taxon_freq: bcounts,
+      num_genes: btot, relevance: 1
+    });
+  }
+  progress('biotype docs: ' + biotype.size);
+
+  // ---------------------------------------------------------------- 5. primary ids
+  progress('emitting ' + uniqueId.size + ' primary id docs');
+  for (const [uid, uid_taxon] of uniqueId) {
+    var orig = originalCase.get(uid);
+    emit({
+      category: 'Genes: primary id', subcategory: 'id', fq_field: 'id', fq_value: orig,
+      id: orig, display_name: orig, num_genes: 1, relevance: 1.2,
+      taxon_id: uid_taxon, taxon_freq: [1]
+    });
+  }
+
+  // ---------------------------------------------------------------- 6. alternate ids
+  progress('emitting ' + altId.size + ' alternate id docs');
+  for (const [A, at] of altId) {
+    var aids = [], acounts = [], atotal = 0;
+    for (const [tid, cnt] of at.taxa) { aids.push(+tid); acounts.push(cnt); atotal += cnt; }
+    emit({
+      category: 'Genes: alternate id', subcategory: 'Alternate IDs', fq_field: 'alt_id',
+      fq_value: at.display, id: 'alt_' + at.display, display_name: at.display, name: at.display,
+      num_genes: atotal, relevance: 1.2, taxon_id: aids, taxon_freq: acounts
+    });
+  }
+
+  out(']\n');
+  out_flush();
+  finished = true;
+  progress('done: ' + n + ' suggestion docs');
+})().catch(function (e) {
+  out_flush();
+  console.error('genes.js FAILED: ' + (e && e.stack || e));
+  process.exit(1);
+});
+
+function heapMB() { return Math.round(process.memoryUsage().heapUsed / 1048576); }
+function bump(map, key, taxon) {
+  var m = map.get(key);
+  if (!m) { m = new Map(); map.set(key, m); }
+  m.set(taxon, (m.get(taxon) || 0) + 1);
+}
