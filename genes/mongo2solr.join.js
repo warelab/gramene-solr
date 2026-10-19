@@ -260,6 +260,22 @@ collections.genes.mongoCollection().then(function(genesCol) {
           }
         }
     
+        // The crop cultivar tree sets. Field names match the mongo homology keys exactly so the
+        // two sides cannot drift, and the genes schema already declares all eight as stored, so
+        // they reach the API with no schema change. A gene may carry several at once -- a wheat
+        // cultivar gene is in both the default plants tree and the wheat_cultivars tree -- so
+        // these are additive, and an absent field simply means the gene is not in that set. That
+        // is what lets a client offer the user a choice of which tree to load.
+        //
+        // This block was added to mongo2solr.js in 49679f3, but stage 60 runs THIS file, so until
+        // now the cultivar tree ids never reached solr and the API exposed gene_tree only.
+        ['barley', 'oat', 'wheat', 'rice'].forEach(function (set) {
+          if (mongo.homology[set]) {
+            solr[set] = mongo.homology[set].id;
+            solr[set + '_root_taxon_id'] = mongo.homology[set].root_taxon_id;
+          }
+        });
+
         if (mongo.homology.supertree) {
           solr.supertree_attr_s = mongo.homology.supertree;
         }
