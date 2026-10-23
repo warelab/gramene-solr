@@ -276,9 +276,20 @@ collections.genes.mongoCollection().then(function(genesCol) {
           }
         });
 
-        if (mongo.homology.supertree) {
-          solr.supertree_attr_s = mongo.homology.supertree;
-        }
+        // Supertrees, per set. decorate writes homology.<set>.supertree (search/supertrees.js),
+        // so this reads the same shape the tree ids use rather than the single flat
+        // homology.supertree that release 69 produced -- a gene can be in a default supertree AND
+        // a cultivar one, and one field cannot carry both.
+        //
+        // The default set keeps r69's field name, supertree_attr_s, so anything already reading it
+        // keeps working; the cultivar sets get <set>_supertree_attr_s. No schema change is needed:
+        // the genes managed-schema's *_attr_s dynamicField covers all five.
+        ['gene_tree', 'barley', 'oat', 'wheat', 'rice'].forEach(function (set) {
+          var h = mongo.homology[set];
+          if (h && h.supertree) {
+            solr[(set === 'gene_tree' ? 'supertree' : set + '_supertree') + '_attr_s'] = h.supertree;
+          }
+        });
         if (mongo.homology.pan_tree) {
           solr.pan_tree = mongo.homology.pan_tree.id;
           solr.pan_tree_root_taxon_id = mongo.homology.pan_tree.root_taxon_id;

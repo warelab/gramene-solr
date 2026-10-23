@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+//
+// NOT THE MAPPER THE BUILD RUNS. 60_solr_genes.sh runs mongo2solr.join.js, which joins the
+// expression collection server-side instead of loading it into node memory (this one OOMed at
+// release-70 scale). This file is kept only because older recipes referenced it.
+//
+// Edit mongo2solr.join.js, not this. Commit 49679f3 added the cultivar tree-id block HERE by
+// mistake; the ids therefore never reached solr, every gate passed, and the omission survived two
+// full rebuilds before anyone noticed the genes core exposed gene_tree only. The per-set supertree
+// block added alongside this comment is likewise only in mongo2solr.join.js.
 var collections = require('gramene-mongodb-config');
 var _ = require('lodash');
 
