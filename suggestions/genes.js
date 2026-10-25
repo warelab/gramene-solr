@@ -72,13 +72,29 @@ function emit(doc) {
   var originalCase = new Map(); // UPPER(_id) -> original _id
   var altId = new Map();        // UPPER(alt) -> {display, taxa: Map(taxon -> count)}
   var biotype = new Map();      // biotype    -> Map(taxon -> count)
-  var geneTree = new Map();     // tree id    -> Map(taxon -> count)
+  // Tree and supertree suggestions, per tree set. The set names are NOT hardcoded: they come
+  // from the genetree collection 35_genetrees built, so a set added upstream is picked up without
+  // editing this file -- and this file cannot disagree with the sets that actually exist, which is
+  // the failure mode that kept the cultivar tree ids out of solr for two rebuilds.
+  var treeSetsCol = await collections.genetrees.mongoCollection();
+  var treeSets = (await treeSetsCol.distinct('tree_set')).filter(function (x) { return !!x; }).sort();
+  if (!treeSets.length) { throw new Error('no tree_set values in the genetree collection'); }
+  var geneTree = new Map();     // set -> Map(tree id   -> Map(taxon -> count))
+  var superTree = new Map();    // set -> Map(supertree -> Map(taxon -> count))
+  treeSets.forEach(function (ts) { geneTree.set(ts, new Map()); superTree.set(ts, new Map()); });
+  progress('tree sets from the genetree collection: ' + treeSets.join(', '));
+
   var seen = 0;
 
   progress('streaming genes from mongo ...');
-  var cursor = genesCol.find({}, {
-    _id: 1, taxon_id: 1, db_type: 1, alt_id: 1, biotype: 1, 'homology.gene_tree.id': 1
+  // Project only the paths needed. `homology: 1` would drag in homologous_genes, which runs to
+  // hundreds of ids per gene across 16.1M genes.
+  var projection = { _id: 1, taxon_id: 1, db_type: 1, alt_id: 1, biotype: 1 };
+  treeSets.forEach(function (ts) {
+    projection['homology.' + ts + '.id'] = 1;
+    projection['homology.' + ts + '.supertree'] = 1;
   });
+  var cursor = genesCol.find({}, projection);
   for await (const d of cursor) {
     var UP = d._id.toUpperCase();
     uniqueId.set(UP, d.taxon_id);
@@ -95,16 +111,25 @@ function emit(doc) {
       }
     }
     if (d.biotype) { bump(biotype, d.biotype, d.taxon_id); }
-    var gt = d.homology && d.homology.gene_tree && d.homology.gene_tree.id;
-    if (gt) { bump(geneTree, gt, d.taxon_id); }
+    if (d.homology) {
+      for (var tsi = 0; tsi < treeSets.length; tsi++) {
+        var h = d.homology[treeSets[tsi]];
+        if (!h) { continue; }
+        if (h.id) { bump(geneTree.get(treeSets[tsi]), h.id, d.taxon_id); }
+        if (h.supertree) { bump(superTree.get(treeSets[tsi]), h.supertree, d.taxon_id); }
+      }
+    }
 
     if (++seen % 4000000 === 0) {
       progress('  ' + seen + ' genes, heap ' + heapMB() + ' MB');
     }
   }
   progress('genes streamed: ' + seen + ' docs; ' + uniqueId.size + ' ids, ' + altId.size +
-           ' alt ids, ' + biotype.size + ' biotypes, ' + geneTree.size + ' gene trees, heap ' +
-           heapMB() + ' MB');
+           ' alt ids, ' + biotype.size + ' biotypes, heap ' + heapMB() + ' MB');
+  treeSets.forEach(function (ts) {
+    progress('  ' + ts + ': ' + geneTree.get(ts).size + ' trees, '
+             + superTree.get(ts).size + ' supertrees');
+  });
   collections.closeMongoDatabase();
 
   // ---------------------------------------------------------------- 2. terms, streamed
@@ -174,17 +199,36 @@ function emit(doc) {
            bad_decode + ' undecodable)');
   if (bad_decode) { throw new Error(bad_decode + ' term rows could not be JSON-decoded'); }
 
-  // ---------------------------------------------------------------- 3. gene trees
-  for (const [tree, taxa] of geneTree) {
-    var gids = [], gcounts = [], gtot = 0;
-    for (const [tax, cnt] of taxa) { gids.push(tax); gcounts.push(cnt); gtot += cnt; }
-    emit({
-      category: 'Gene trees', id: '_term_' + (n + 1), taxon_id: gids, taxon_freq: gcounts,
-      display_name: tree, name: tree, fq_field: 'gene_tree', fq_value: tree,
-      num_genes: gtot, relevance: 1
-    });
+  // ---------------------------------------------------------------- 3. gene trees + supertrees
+  // One doc per (set, id). The solr field names follow mongo2solr.join.js exactly: a tree id is
+  // filtered on the set's own field (gene_tree, barley, oat, wheat, rice) and a supertree on
+  // supertree_attr_s for the default set or <set>_supertree_attr_s for a cultivar set. A
+  // suggestion carries a single fq_field/fq_value pair, so each set needs its own doc -- which is
+  // also what makes "load this gene's rice-cultivar tree" an offerable choice rather than a guess.
+  //
+  // Only the default set used to get suggestions here, so a cultivar tree id such as
+  // EplRiceGT_PTHR10000_SF7 could not be looked up at all, and supertrees had none in any set.
+  function emitPerSet(label, perSet, fqFieldFor) {
+    var total = 0;
+    for (const [ts, byId] of perSet) {
+      for (const [val, taxa] of byId) {
+        var gids = [], gcounts = [], gtot = 0;
+        for (const [tax, cnt] of taxa) { gids.push(tax); gcounts.push(cnt); gtot += cnt; }
+        emit({
+          category: label, id: '_term_' + (n + 1), taxon_id: gids, taxon_freq: gcounts,
+          display_name: val, name: val, fq_field: fqFieldFor(ts), fq_value: val,
+          num_genes: gtot, relevance: 1
+        });
+        total++;
+      }
+    }
+    return total;
   }
-  progress('gene tree docs: ' + geneTree.size);
+  var nTreeDocs = emitPerSet('Gene trees', geneTree, function (ts) { return ts; });
+  var nSuperDocs = emitPerSet('Supertrees', superTree, function (ts) {
+    return (ts === 'gene_tree' ? 'supertree' : ts + '_supertree') + '_attr_s';
+  });
+  progress('gene tree docs: ' + nTreeDocs + '; supertree docs: ' + nSuperDocs);
 
   // ---------------------------------------------------------------- 4. biotypes
   for (const [bt, taxa] of biotype) {
