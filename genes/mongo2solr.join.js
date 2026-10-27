@@ -269,12 +269,31 @@ collections.genes.mongoCollection().then(function(genesCol) {
         //
         // This block was added to mongo2solr.js in 49679f3, but stage 60 runs THIS file, so until
         // now the cultivar tree ids never reached solr and the API exposed gene_tree only.
+        var inCultivarTree = false;
         ['barley', 'oat', 'wheat', 'rice'].forEach(function (set) {
           if (mongo.homology[set]) {
             solr[set] = mongo.homology[set].id;
             solr[set + '_root_taxon_id'] = mongo.homology[set].root_taxon_id;
+            inCultivarTree = true;
           }
         });
+
+        // Which tree sets is this gene in? capabilities is what tells a client what to offer for
+        // a gene -- the 'homology' value pushed above is what enables its Homology tab -- and the
+        // tab cannot offer a choice of tree without knowing which sets exist for this gene. The
+        // <set> id fields are not in the search response's default fl, so say it in capabilities:
+        // one value per set, plus a cultivar_tree roll-up for the plain "is this gene in any
+        // cultivar set tree" question, which is otherwise four checks on the client.
+        //
+        // The default set is included so a chooser can read all five from one place. familyRoot
+        // already happens to mark the same genes, but only as an xref side-effect (ancestor_adder
+        // adds an NCBITaxon xref for the tree's root taxon); its name says nothing about tree
+        // membership and it would silently stop tracking it if that xref ever changed.
+        if (mongo.homology.gene_tree) { solr.capabilities.push('gene_tree'); }
+        ['barley', 'oat', 'wheat', 'rice'].forEach(function (set) {
+          if (mongo.homology[set]) { solr.capabilities.push(set + '_tree'); }
+        });
+        if (inCultivarTree) { solr.capabilities.push('cultivar_tree'); }
 
         // Supertrees, per set. decorate writes homology.<set>.supertree (search/supertrees.js),
         // so this reads the same shape the tree ids use rather than the single flat
