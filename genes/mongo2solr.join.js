@@ -390,7 +390,13 @@ collections.genes.mongoCollection().then(function(genesCol) {
             solr.capabilities.push('Grassius');
           }
           else if (!mongo.annotations.hasOwnProperty(xref.db)) {
-            solr[xref.db + '__xrefs'] = xref.ids;
+            // ACCUMULATE. This was an assignment, so a gene with two xrefs for the same db kept only
+            // the last one in solr -- PUBMED was special-cased into `pubs` above precisely because it
+            // repeats, and nothing else repeated until curated references started arriving keyed by
+            // DOI as well as PMID. The field is multiValued in the schema either way, and for a db
+            // that appears once this is identical to the assignment it replaces.
+            var xf = xref.db + '__xrefs';
+            solr[xf] = solr[xf] ? solr[xf].concat(xref.ids) : xref.ids;
             have_xrefs=true;
             xref.ids.forEach(function(id) {
               if (_.isString(id)) {
