@@ -57,9 +57,24 @@ function get_rep(c) {
   return rep;
 }
 
+// OPTIONAL SUBSET: SOLR_ID_FILTER=<file of gene ids, one per line> restricts the run to those
+// genes. For recomputing a handful of docs after a targeted curated change (build/curated_patch.js)
+// instead of re-running all 16.1M.
+//
+// A subset run is only valid for fields derived from the gene doc itself -- name, synonyms, _terms.
+// It is NOT valid for compara_idx or compara_neighbors_*: `p` below is a running position over the
+// WHOLE sorted collection, so a filtered run assigns those fields values for a 358-gene genome.
+// Never load a subset run's output as whole documents; take the fields you asked for.
+var ID_FILTER = process.env.SOLR_ID_FILTER || '';
+var ID_LIST = ID_FILTER
+  ? fs.readFileSync(ID_FILTER, 'utf8').split('\n').map(function (l) { return l.trim(); }).filter(Boolean)
+  : null;
+if (ID_LIST) console.error('SOLR_ID_FILTER: restricting to ' + ID_LIST.length + ' gene ids');
+
 collections.genes.mongoCollection().then(function(genesCol) {
   const cursor = genesCol.aggregate([
     { $sort: { species_idx: 1, db_type: 1, gene_idx: 1 } },
+  ].concat(ID_LIST ? [{ $match: { _id: { $in: ID_LIST } } }] : []).concat([
 
     // Join genes._id to expression._id
     {
@@ -76,7 +91,7 @@ collections.genes.mongoCollection().then(function(genesCol) {
 
     // Optional: if you don't want the _id inside the embedded expression
     // { $set: { "expression._id": "$$REMOVE" } },
-  ], { allowDiskUse: true });
+  ]), { allowDiskUse: true });
 
   var n=0;
   var p_padding = 100;
