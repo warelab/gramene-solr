@@ -390,7 +390,11 @@ collections.genes.mongoCollection().then(function(genesCol) {
         let have_xrefs=false;
         mongo.xrefs.forEach(function(xref) {
           if (xref.db === 'PUBMED') {
-            pubs.push(xref.ids[0])
+            // Every id, not just ids[0]. The ACCUMULATE comment below records the same bug being
+            // fixed for the other branch; this special case kept only the first PMID of a record,
+            // so a reference citing two papers put one of them in the index and dropped the other.
+            // 996 medicago records cite 2-3 PMIDs, which cost 1,016 PMID occurrences.
+            (xref.ids || []).forEach(function(id) { pubs.push(id); });
           }
           else if (xref.db === 'PanOryza') {
             solr['PanOryza__xrefs'] = xref.ids;
