@@ -231,8 +231,20 @@ _GENOMES = None
 def discover_genomes(manifest_overrides=None):
     """Genomes that actually have expression data in mongo (so coverage tracks the build,
     not a hand-maintained list): [{system_name,taxon,clade,short,name,n_genes}], sorted by size.
-    taxon = NCBI base id (taxon_id // 1000). clade comes from the manifest override if present,
-    else po_map.CLADE_OF_TAXON, else 'other' (stress-only)."""
+
+    taxon = the genome's FULL taxon_id, because it identifies the genome: every per-genome
+    artifact is keyed on it (<taxon>.assays_cache.json, ref_<taxon>.json, inv_<taxon>.json,
+    prog_<taxon>.json, the expression_panel species dict, and the --taxon/--only CLI args).
+    It used to be the NCBI base id (taxon_id // 1000), which is NOT unique per genome: on the
+    grapevine subsite BOTH expression-bearing assemblies of PN40024 -- vitis_vinifera 29760019
+    (v3, VIT_-keyed) and vitis_viniferapn40024 29760020 (v4, Vitvi-keyed) -- collapse to 29760.
+    They would then share one reference distribution and one panel entry, system_name_for_taxon
+    would resolve only whichever sorted first, and the completeness check would compare one
+    genome's output against the other's expectations.
+
+    The NCBI base is still what po_map.CLADE_OF_TAXON is keyed on, so it is computed locally for
+    that lookup only. clade comes from the manifest override if present, else CLADE_OF_TAXON,
+    else 'other' (stress-only)."""
     global _GENOMES
     if _GENOMES is not None and manifest_overrides is None:
         return _GENOMES
@@ -247,10 +259,11 @@ def discover_genomes(manifest_overrides=None):
     genomes = []
     for d in _stream(js):
         sn = d["system_name"]
-        base = int(d["taxon_id"]) // 1000
+        taxon_id = int(d["taxon_id"])
+        base = taxon_id // 1000          # NCBI base: ONLY for the clade lookup, not an identity
         o = ov.get(sn, {})
         genomes.append({
-            "system_name": sn, "taxon": base,
+            "system_name": sn, "taxon": taxon_id,
             "clade": o.get("clade") or M.CLADE_OF_TAXON.get(base, "other"),
             "short": o.get("short", sn), "name": o.get("name", sn),
             "n_genes": d["n"]})

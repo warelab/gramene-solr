@@ -66,7 +66,11 @@ def setup_species(cfg, taxon):
         if organ:
             s2o[aid] = organ
     imap = G.build_intensity_map(assays, cfg)
-    clade = cfg["species"].get(str(taxon), {}).get("clade") or M.CLADE_OF_TAXON.get(taxon, "other")
+    # `taxon` is a full taxon_id (see mongo_source.discover_genomes), so the CLADE_OF_TAXON
+    # fallback -- which is keyed on NCBI base ids -- has to divide before looking up, or it
+    # silently never matches and every unconfigured species falls through to 'other'.
+    clade = (cfg["species"].get(str(taxon), {}).get("clade")
+             or M.CLADE_OF_TAXON.get(int(taxon) // 1000, "other"))
     organs = M.CLADE_PANELS.get(clade, [])
     ref = cfg["species"].get(str(taxon), {}).get("reference")
     bp = ref["global_breakpoints_tpm"] if ref else None
@@ -220,11 +224,15 @@ def main():
     cfg = json.load(open(args.config))
     docs = G.fetch_expression_docs(cfg, args.genes)
 
+    # Group on the FULL taxon_id, because that is what keys cfg["species"] (one entry per genome,
+    # not per NCBI species -- two assemblies of one species are two entries). Dividing by 1000 here
+    # produced a key that matches nothing in cfg, so setups came back empty and every gene was
+    # reported "species not configured".
     by_tax = defaultdict(list)
     for gid in args.genes:
         d = docs.get(gid)
         if d is not None and d.get("taxon_id") is not None:
-            by_tax[int(d["taxon_id"]) // 1000].append(gid)
+            by_tax[int(d["taxon_id"])].append(gid)
     setups = {t: setup_species(cfg, t) for t in by_tax if str(t) in cfg["species"]}
 
     results = {}
@@ -233,7 +241,7 @@ def main():
         if d is None:
             results[gid] = {"_id": gid, "error": "no expression data"}
             continue
-        t = int(d["taxon_id"]) // 1000
+        t = int(d["taxon_id"])
         if t not in setups:
             results[gid] = {"_id": gid, "taxon_id": t, "error": "species not configured"}
             continue
