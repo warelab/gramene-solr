@@ -336,6 +336,13 @@ function ontologyPromises() { return _.map(mongo2solr, function(f,key) {
           console.error('docs is not defined '+ key);
           deferred.reject('docs undefined for collection '+ key);
         }
+        // Carried forward from the grapevine v4 checkout, where it was an uncommitted local fix.
+        // The loop below does doc.ancestors.forEach unguarded, so a single ontology doc without
+        // `ancestors` throws a TypeError and kills stage 65 -- the last stage before services.
+        // Verified against grapevine4: GO/PO/TO/domains/taxonomy/pathways currently have 0 such
+        // docs, so this filters nothing today; it is here so a fresh OBO load that introduces one
+        // degrades instead of failing the build.
+        docs = docs.filter(function (d) { return d.ancestors; });
         console.error('got '+docs.length + ' docs from collection '+key);
         // leaf nodes get the maximum boost
         // so for each node we need to know how many nodes are below it (descendants)
