@@ -1,11 +1,63 @@
 {
-  "api_base": "https://data.sorghumbase.org/sorghum_v11",
+  "api_base": "https://data.gramene.org/grapevine_v5",
+  "_note_short": "short names the per-genome output files (batch.py writes <short>_attributes.jsonl), so it MUST be unique per genome and filename-safe. The two PN40024 assemblies are distinguished as grape_v4/grape_v3 for exactly that reason: labelling both 'grape' would make them write the same file, which is the same collision the base-taxon id used to cause in mongo_source.discover_genomes.",
+  "_note_taxon": "taxon is documentation only -- discover_genomes derives it from mongo and matches these overrides by system_name. Values are the FULL per-genome taxon_ids used on this site, not NCBI base ids.",
   "genomes": [
-    {"system_name": "sorghum_bicolor",           "taxon": 4558,  "clade": "grass",     "short": "sorghum",       "name": "Sorghum bicolor"},
-    {"system_name": "zea_maysb73",                "taxon": 4577,  "clade": "grass",     "short": "maize",         "name": "Zea mays (B73)"},
-    {"system_name": "oryza_sativa",               "taxon": 39947, "clade": "grass",     "short": "rice",          "name": "Oryza sativa Japonica"},
-    {"system_name": "arabidopsis_thaliana",       "taxon": 3702,  "clade": "eudicot",   "short": "arabidopsis",   "name": "Arabidopsis thaliana"},
-    {"system_name": "vitis_vinifera",             "taxon": 29760, "clade": "eudicot",   "short": "grape",         "name": "Vitis vinifera"},
-    {"system_name": "chlamydomonas_reinhardtii",  "taxon": 3055,  "clade": "algae",     "short": "chlamydomonas", "name": "Chlamydomonas reinhardtii"}
+    {
+      "system_name": "vitis_viniferapn40024",
+      "taxon": 29760020,
+      "clade": "eudicot",
+      "short": "grape_v4",
+      "name": "Vitis vinifera PN40024 v4"
+    },
+    {
+      "system_name": "vitis_vinifera",
+      "taxon": 29760019,
+      "clade": "eudicot",
+      "short": "grape_v3",
+      "name": "Vitis vinifera PN40024 v3"
+    },
+    {
+      "system_name": "sorghum_bicolor",
+      "taxon": 4558001,
+      "clade": "grass",
+      "short": "sorghum",
+      "name": "Sorghum bicolor BTx623"
+    },
+    {
+      "system_name": "zea_maysb73",
+      "taxon": 4577001,
+      "clade": "grass",
+      "short": "maize",
+      "name": "Zea mays B73 v5"
+    },
+    {
+      "system_name": "oryza_sativa",
+      "taxon": 39947001,
+      "clade": "grass",
+      "short": "rice",
+      "name": "Oryza sativa Japonica Nipponbare"
+    },
+    {
+      "system_name": "arabidopsis_thaliana",
+      "taxon": 3702001,
+      "clade": "eudicot",
+      "short": "arabidopsis",
+      "name": "Arabidopsis thaliana"
+    },
+    {
+      "system_name": "solanum_lycopersicum",
+      "taxon": 4081001,
+      "clade": "eudicot",
+      "short": "tomato",
+      "name": "Solanum lycopersicum"
+    },
+    {
+      "system_name": "chlamydomonas_reinhardtii",
+      "taxon": 3055001,
+      "clade": "algae",
+      "short": "chlamydomonas",
+      "name": "Chlamydomonas reinhardtii"
+    }
   ]
 }
