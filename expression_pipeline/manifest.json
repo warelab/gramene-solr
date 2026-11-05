@@ -53,6 +53,15 @@
       "name": "Solanum lycopersicum"
     },
     {
+      "system_name": "drosophila_melanogaster",
+      "taxon": 7227001,
+      "exclude": true,
+      "_why_excluded": "Animal outgroup. Taxon 7227 has no po_map.CLADE_OF_TAXON entry, so it falls to clade 'other', which has no CLADE_PANELS organ panel; and the plant stress classifier matches none of its contrasts. A full run produced 17,559 docs of which ZERO carried a single non-empty attribute -- pure noise that would advertise an expression_attributes capability holding nothing. Contrast chlamydomonas: clade 'algae' also has 0 organs, but that is by design (algae and bryophytes are stress-only) and it does carry data -- 4,130 docs with stress attributes. So 0 organs alone is NOT the test for exclusion; 0 information is. Its raw `expression` docs (18,101) are unaffected.",
+      "clade": "other",
+      "short": "drosophila_melanogaster",
+      "name": "Drosophila melanogaster"
+    },
+    {
       "system_name": "chlamydomonas_reinhardtii",
       "taxon": 3055001,
       "clade": "algae",

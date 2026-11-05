@@ -244,7 +244,15 @@ def discover_genomes(manifest_overrides=None):
 
     The NCBI base is still what po_map.CLADE_OF_TAXON is keyed on, so it is computed locally for
     that lookup only. clade comes from the manifest override if present, else CLADE_OF_TAXON,
-    else 'other' (stress-only)."""
+    else 'other' (stress-only).
+
+    A manifest override may also set "exclude": true, which drops the genome from the pipeline
+    entirely. That is for a genome whose expression data cannot produce attributes at all --
+    an animal outgroup has no Plant Ontology organ mapping and no contrast the plant stress
+    classifier recognises, so every one of its docs comes out an empty shell. Excluding it here
+    covers every consumer at once (the stage's SHORTS listing, build.py and the completeness
+    check), because they all discover through this function. Its raw `expression` docs are
+    untouched -- only the derived attributes are skipped."""
     global _GENOMES
     if _GENOMES is not None and manifest_overrides is None:
         return _GENOMES
@@ -262,6 +270,8 @@ def discover_genomes(manifest_overrides=None):
         taxon_id = int(d["taxon_id"])
         base = taxon_id // 1000          # NCBI base: ONLY for the clade lookup, not an identity
         o = ov.get(sn, {})
+        if o.get("exclude"):
+            continue
         genomes.append({
             "system_name": sn, "taxon": taxon_id,
             "clade": o.get("clade") or M.CLADE_OF_TAXON.get(base, "other"),
