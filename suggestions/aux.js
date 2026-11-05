@@ -86,7 +86,14 @@ var mongo2solr = {
     var solr = {
       category: 'QTLs',
       int_id: doc._id,
-      id: doc.id,
+      // The suggestions uniqueKey is `id`, and this builder reads the same TO collection as
+      // the `TO` builder above -- so a bare `doc.id` makes the two docs for a term that is both
+      // gene- and QTL-annotated collide, and whichever file loads last wins. Stage 65 loads
+      // TO.json then QTL_TO.json, so the QTL doc silently replaced the trait doc: of 741 trait
+      // suggestions only 342 survived, and /suggest?q=potassium returned 2 traits instead of 8.
+      // Namespace this key so both docs coexist. The search action is carried by fq_field/
+      // fq_value, and the unprefixed accession is still in int_id, so nothing downstream moves.
+      id: 'QTL_' + doc.id,
       display_name: doc.name,
       name: doc.name,
       def: doc.def,
