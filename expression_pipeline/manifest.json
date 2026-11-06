@@ -1,11 +1,72 @@
 {
-  "api_base": "https://data.sorghumbase.org/sorghum_v11",
+  "api_base": "https://data.gramene.org/maize_v6",
+  "_note_short": "short names the per-genome output files (batch.py writes <short>_attributes.jsonl), so it MUST be unique per genome and filename-safe. The three B73 assemblies are distinguished as maize/maize_v4/maize_v3 for exactly that reason: labelling them all 'maize' would make them write the same file, which is the same collision the base-taxon id used to cause in mongo_source.discover_genomes.",
+  "_note_taxon": "taxon is documentation only -- discover_genomes derives it from mongo and matches these overrides by system_name. Values are the FULL per-genome taxon_ids used on this site, not NCBI base ids.",
   "genomes": [
-    {"system_name": "sorghum_bicolor",           "taxon": 4558,  "clade": "grass",     "short": "sorghum",       "name": "Sorghum bicolor"},
-    {"system_name": "zea_maysb73",                "taxon": 4577,  "clade": "grass",     "short": "maize",         "name": "Zea mays (B73)"},
-    {"system_name": "oryza_sativa",               "taxon": 39947, "clade": "grass",     "short": "rice",          "name": "Oryza sativa Japonica"},
-    {"system_name": "arabidopsis_thaliana",       "taxon": 3702,  "clade": "eudicot",   "short": "arabidopsis",   "name": "Arabidopsis thaliana"},
-    {"system_name": "vitis_vinifera",             "taxon": 29760, "clade": "eudicot",   "short": "grape",         "name": "Vitis vinifera"},
-    {"system_name": "chlamydomonas_reinhardtii",  "taxon": 3055,  "clade": "algae",     "short": "chlamydomonas", "name": "Chlamydomonas reinhardtii"}
+    {
+      "system_name": "zea_maysb73",
+      "taxon": 4577003,
+      "clade": "grass",
+      "short": "maize",
+      "name": "Zea mays B73 v5"
+    },
+    {
+      "system_name": "zea_maysb73v4",
+      "taxon": 4577006,
+      "clade": "grass",
+      "short": "maize_v4",
+      "name": "Zea mays B73 v4"
+    },
+    {
+      "system_name": "zea_maysb73v3",
+      "taxon": 4577005,
+      "clade": "grass",
+      "short": "maize_v3",
+      "name": "Zea mays B73 v3"
+    },
+    {
+      "system_name": "oryza_sativa",
+      "taxon": 39947001,
+      "clade": "grass",
+      "short": "rice",
+      "name": "Oryza sativa Japonica Nipponbare"
+    },
+    {
+      "system_name": "sorghum_bicolor",
+      "taxon": 4558001,
+      "clade": "grass",
+      "short": "sorghum",
+      "name": "Sorghum bicolor BTx623"
+    },
+    {
+      "system_name": "arabidopsis_thaliana",
+      "taxon": 3702001,
+      "clade": "eudicot",
+      "short": "arabidopsis",
+      "name": "Arabidopsis thaliana"
+    },
+    {
+      "system_name": "vitis_vinifera",
+      "taxon": 29760001,
+      "clade": "eudicot",
+      "short": "grape",
+      "name": "Vitis vinifera"
+    },
+    {
+      "system_name": "chlamydomonas_reinhardtii",
+      "taxon": 3055001,
+      "clade": "algae",
+      "short": "chlamydomonas",
+      "name": "Chlamydomonas reinhardtii"
+    },
+    {
+      "system_name": "drosophila_melanogaster",
+      "taxon": 7227001,
+      "exclude": true,
+      "_why_excluded": "Animal outgroup. Taxon 7227 has no po_map.CLADE_OF_TAXON entry, so it falls to clade 'other', which has no CLADE_PANELS organ panel; and the plant stress classifier matches none of its contrasts. Measured on this site's own full run: 17,737 docs, breadth='no_baseline' for every one, and ZERO carrying a single non-empty attribute -- pure noise that would advertise an expression_attributes capability holding nothing. Contrast chlamydomonas: clade 'algae' also has 0 organs, but that is by design (algae and bryophytes are stress-only) and it does carry data -- 4,133 of 17,943 docs have stress attributes. So 0 organs alone is NOT the test for exclusion; 0 information is. Its raw `expression` docs are unaffected.",
+      "clade": "other",
+      "short": "drosophila_melanogaster",
+      "name": "Drosophila melanogaster"
+    }
   ]
 }
