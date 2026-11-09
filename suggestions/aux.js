@@ -323,7 +323,11 @@ function ontologyPromises() { return _.map(mongo2solr, function(f,key) {
               fq_value: `(map:${l.map} AND region:${l.region} AND start:[${l.start} TO ${l.end}])`,
               num_genes: 1,
               relevance: 1.0,
-              taxon_id: [4558,39947],
+              // Full per-genome taxon ids, as every other suggestion category uses (the solr facet pivot
+              // supplies full ids elsewhere). These were NCBI BASE ids -- 4558/39947 -- which match no
+              // genome and so made the QTL suggestions' taxon facet wrong on every site.
+              // Rice: sorghum BTx623 (GCA_000003195.3) + O. sativa Japonica (GCA_001433935.1).
+              taxon_id: [4558001,39947013],
               taxon_freq: [1,1]
             };
             return solr

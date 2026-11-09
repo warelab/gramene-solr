@@ -1,5 +1,5 @@
 {
-  "api_base": "https://data.gramene.org/maize_v6",
+  "api_base": "https://data.gramene.org/oryza_v9",
   "_note_short": "short names the per-genome output files (batch.py writes <short>_attributes.jsonl), so it MUST be unique per genome and filename-safe. The three B73 assemblies are distinguished as maize/maize_v4/maize_v3 for exactly that reason: labelling them all 'maize' would make them write the same file, which is the same collision the base-taxon id used to cause in mongo_source.discover_genomes.",
   "_note_taxon": "taxon is documentation only -- discover_genomes derives it from mongo and matches these overrides by system_name. Values are the FULL per-genome taxon_ids used on this site, not NCBI base ids.",
   "genomes": [
