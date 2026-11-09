@@ -50,3 +50,11 @@ __pycache__/
 /expression_pipeline/expression_panel.json
 /expression_pipeline/*_attributes.jsonl
 /expression_pipeline/*_attributes.tsv
+# VEP gene-level attribute table (2.3GB). Rice's copy is v9's SNPeff-derived table reused
+# verbatim -- see build/config.sh's VEP_TABLE comment. Far too large to track; it is an input
+# to the build, not an output, so keep a copy outside git if this tree is ever recreated.
+/vep/vep_attributes.txt
+# term/taxon pairs written by mongo2solr.join.js (SOLR_TERMS_TSV), 74MB:
+/genes/terms.tsv
+# expression_pipeline bookkeeping stamp:
+/expression_pipeline/.rebuilt_jsonl
