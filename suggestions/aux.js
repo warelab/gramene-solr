@@ -351,6 +351,17 @@ function ontologyPromises() { return _.map(mongo2solr, function(f,key) {
           console.error('docs is not defined '+ key);
           deferred.reject('docs undefined for collection '+ key);
         }
+        // The loop below does doc.ancestors.forEach unguarded, so one ontology doc without
+        // `ancestors` throws a TypeError and kills stage 65 -- the last stage before services.
+        // Checked against oryza10: GO/PO/TO/domains/taxonomy/pathways all have 0 such docs, so
+        // this filters nothing today. It is here so a future OBO load that introduces one
+        // degrades instead of failing the build -- and it says so out loud, because a silent
+        // filter here would look exactly like an ontology that shrank.
+        const ndocs = docs.length;
+        docs = docs.filter(function (d) { return d.ancestors; });
+        if (docs.length !== ndocs) {
+          console.error('WARNING: dropped ' + (ndocs - docs.length) + ' doc(s) with no `ancestors` from collection ' + key);
+        }
         console.error('got '+docs.length + ' docs from collection '+key);
         // leaf nodes get the maximum boost
         // so for each node we need to know how many nodes are below it (descendants)
